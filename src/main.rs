@@ -2,8 +2,17 @@ use std::convert::TryInto;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
+use structopt::StructOpt;
+
+#[derive(StructOpt, Debug)]
+struct Opt {
+    #[structopt()]
+    id: u32,
+}
 
 fn main() -> io::Result<()> {
+    let opt = Opt::from_args();
+
     let mut f = File::open("content.dat")?;
     let mut buf = Vec::new();
     f.read_to_end(&mut buf)?;
@@ -32,13 +41,25 @@ fn main() -> io::Result<()> {
 
     let content = header;
 
-    let id = 10;
-    println!("{}", read_entry(&offsets, &content, id));
+    let id = opt.id as usize;
+    if let Some(e) = read_entry(&offsets, &content, id) {
+        println!("{}", e);
+    } else {
+        println!(
+            "Given invalid ID {}. ID must be in range (0..{})",
+            id,
+            offsets.len() - 1
+        );
+    }
 
     Ok(())
 }
 
-fn read_entry<'a>(offsets: &[i32], content: &'a [u8], pos: usize) -> &'a str {
+fn read_entry<'a>(offsets: &[i32], content: &'a [u8], pos: usize) -> Option<&'a str> {
+    if pos >= offsets.len() {
+        return None;
+    }
+
     let type_length = 1; // type field for entry
 
     let start = (offsets[pos] + type_length) as usize;
@@ -48,5 +69,5 @@ fn read_entry<'a>(offsets: &[i32], content: &'a [u8], pos: usize) -> &'a str {
         content.len()
     };
 
-    std::str::from_utf8(&content[start..end]).unwrap()
+    std::str::from_utf8(&content[start..end]).ok()
 }

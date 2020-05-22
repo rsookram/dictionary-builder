@@ -70,6 +70,8 @@ fn main() {
         entries.extend(entry_iter);
     }
 
+    entries.sort_unstable_by_key(|e| (e.word.clone(), e.type_id, e.definitions.clone()));
+
     for entry in entries {
         println!("Found {:?}", entry);
     }

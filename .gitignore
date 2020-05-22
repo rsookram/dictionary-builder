@@ -1,3 +1,7 @@
 /target
 
+# Input files
+*.db
+
+# Output files
 *.dat

@@ -46,9 +46,8 @@ fn main() {
         return;
     }
 
+    let mut entries = Vec::new();
     for path in &opt.input_files {
-        println!("input {:?}", path);
-
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
 
         let mut stmt = conn
@@ -63,10 +62,13 @@ fn main() {
                     definitions: row.get(3)?,
                 })
             })
-            .unwrap();
+            .unwrap()
+            .map(Result::unwrap);
 
-        for entry in entry_iter {
-            println!("Found {:?}", entry.unwrap());
-        }
+        entries.extend(entry_iter);
+    }
+
+    for entry in entries {
+        println!("Found {:?}", entry);
     }
 }

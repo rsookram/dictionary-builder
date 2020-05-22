@@ -2,10 +2,14 @@ use std::convert::TryInto;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
+use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
 struct Opt {
+    #[structopt(short, long, default_value = "content.dat", parse(from_os_str))]
+    content_file: PathBuf,
+
     #[structopt()]
     id: u32,
 }
@@ -13,7 +17,7 @@ struct Opt {
 fn main() -> io::Result<()> {
     let opt = Opt::from_args();
 
-    let mut f = File::open("content.dat")?;
+    let mut f = File::open(opt.content_file)?;
     let mut buf = Vec::new();
     f.read_to_end(&mut buf)?;
 

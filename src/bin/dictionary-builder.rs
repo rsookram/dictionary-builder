@@ -32,6 +32,7 @@ struct Opt {
 
 #[derive(Debug)]
 struct InputEntry {
+    type_id: i8,
     word: String,
     variants: Option<String>,
     reading: Option<String>,
@@ -47,7 +48,7 @@ fn main() {
     }
 
     let mut entries = Vec::new();
-    for path in &opt.input_files {
+    for (idx, path) in opt.input_files.iter().enumerate() {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
 
         let mut stmt = conn
@@ -56,6 +57,7 @@ fn main() {
         let entry_iter = stmt
             .query_map(params![], |row| {
                 Ok(InputEntry {
+                    type_id: idx as i8,
                     word: row.get(0)?,
                     variants: row.get(1)?,
                     reading: row.get(2)?,

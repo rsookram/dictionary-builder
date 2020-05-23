@@ -1,6 +1,8 @@
 use rusqlite::params;
 use rusqlite::Connection;
 use rusqlite::OpenFlags;
+use std::fs::File;
+use std::io::Write;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -25,6 +27,10 @@ CREATE TABLE Lookup(
 ```
 ")]
 struct Opt {
+    /// Path to write the content file to
+    #[structopt(long, parse(from_os_str))]
+    output_content_file: PathBuf,
+
     /// SQLite DB files to process
     #[structopt(name = "FILE", parse(from_os_str))]
     input_files: Vec<PathBuf>,
@@ -84,6 +90,18 @@ impl Header {
             offsets,
         }
     }
+
+    fn encode(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+
+        bytes.extend_from_slice(&self.size_bytes.to_be_bytes());
+
+        for offset in &self.offsets {
+            bytes.extend_from_slice(&offset.to_be_bytes());
+        }
+
+        bytes
+    }
 }
 
 fn main() {
@@ -119,7 +137,16 @@ fn main() {
 
     entries.sort_unstable_by_key(|e| (e.word.clone(), e.type_id, e.definitions.clone()));
 
-    for entry in entries {
-        println!("Found {:?}", entry);
+    let header = Header::for_entries(&entries);
+    println!("{:#?}", header);
+
+    for entry in &entries {
+        println!("{:?}", entry);
+    }
+
+    let mut content_file = File::create(opt.output_content_file).unwrap();
+    content_file.write_all(&header.encode()).unwrap();
+    for e in &entries {
+        content_file.write_all(&e.encode()).unwrap();
     }
 }

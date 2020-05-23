@@ -58,6 +58,34 @@ impl InputEntry {
     }
 }
 
+#[derive(Debug)]
+struct Header {
+    size_bytes: i32,
+    offsets: Vec<i16>,
+}
+
+impl Header {
+    fn for_entries(entries: &[InputEntry]) -> Self {
+        let length_field_size_bytes = 4;
+        let entry_size_bytes = 2;
+
+        let size_bytes = length_field_size_bytes + (entry_size_bytes * entries.len() as i32);
+
+        let mut offsets = Vec::with_capacity(entries.len());
+
+        let mut previous_length = 0;
+        for e in entries {
+            offsets.push(previous_length);
+            previous_length = e.encode().len() as i16;
+        }
+
+        Header {
+            size_bytes,
+            offsets,
+        }
+    }
+}
+
 fn main() {
     let opt = Opt::from_args();
 

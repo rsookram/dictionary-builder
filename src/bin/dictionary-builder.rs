@@ -39,6 +39,25 @@ struct InputEntry {
     definitions: String,
 }
 
+impl InputEntry {
+    fn encode(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+
+        let separator = b"#";
+
+        bytes.extend_from_slice(&self.type_id.to_be_bytes());
+        bytes.extend_from_slice(self.word.as_bytes());
+        bytes.extend_from_slice(separator);
+        bytes.extend_from_slice(self.variants.as_ref().unwrap_or(&"".to_string()).as_bytes());
+        bytes.extend_from_slice(separator);
+        bytes.extend_from_slice(self.reading.as_ref().unwrap_or(&"".to_string()).as_bytes());
+        bytes.extend_from_slice(separator);
+        bytes.extend_from_slice(self.definitions.as_bytes());
+
+        bytes
+    }
+}
+
 fn main() {
     let opt = Opt::from_args();
 

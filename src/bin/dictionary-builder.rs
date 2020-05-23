@@ -39,6 +39,7 @@ struct Opt {
 #[derive(Debug)]
 struct InputEntry {
     type_id: i8,
+    id: u32,
     word: String,
     variants: Option<String>,
     reading: Option<String>,
@@ -117,16 +118,17 @@ fn main() {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
 
         let mut stmt = conn
-            .prepare("SELECT word, variants, reading, definitions FROM Entry")
+            .prepare("SELECT id, word, variants, reading, definitions FROM Entry")
             .unwrap();
         let entry_iter = stmt
             .query_map(params![], |row| {
                 Ok(InputEntry {
                     type_id: idx as i8,
-                    word: row.get(0)?,
-                    variants: row.get(1)?,
-                    reading: row.get(2)?,
-                    definitions: row.get(3)?,
+                    id: row.get(0)?,
+                    word: row.get(1)?,
+                    variants: row.get(2)?,
+                    reading: row.get(3)?,
+                    definitions: row.get(4)?,
                 })
             })
             .unwrap()

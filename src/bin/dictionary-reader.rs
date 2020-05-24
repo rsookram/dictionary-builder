@@ -102,9 +102,10 @@ fn run_lookup(file: &Path, ch: char) -> LookupEntry {
     let mut buf = Vec::new();
     f.read_to_end(&mut buf).unwrap();
 
+    let mut rdr = std::io::Cursor::new(buf);
+
     let header_length_field_in_bytes = size_of::<i32>();
-    let (length_bytes, mut header) = buf.split_at(header_length_field_in_bytes);
-    let header_length = i32::from_be_bytes(length_bytes.try_into().unwrap()) as u32;
+    let header_length = rdr.read_i32::<BigEndian>().unwrap() as u32;
 
     let index_char_length = size_of::<i32>();
     let index_offset_length = size_of::<i32>();
@@ -114,21 +115,17 @@ fn run_lookup(file: &Path, ch: char) -> LookupEntry {
 
     let mut index = BTreeMap::new();
     for _ in 0..num_index_entries {
-        let (entry_bytes, rest) = header.split_at(index_entry_field_in_bytes);
-        header = rest;
-
-        let char_num =
-            i32::from_be_bytes(entry_bytes[..index_char_length].try_into().unwrap()) as u32;
-        let offset = i32::from_be_bytes(entry_bytes[index_char_length..].try_into().unwrap());
+        let char_num = rdr.read_i32::<BigEndian>().unwrap() as u32;
+        let offset = rdr.read_i32::<BigEndian>().unwrap();
 
         let ch = std::char::from_u32(char_num).unwrap();
 
         index.insert(ch, offset);
     }
 
-    let offset = index[&ch] as usize;
+    let offset = index[&ch] as usize + header_length as usize;
 
-    let mut content = &header[offset..];
+    let mut content = &rdr.into_inner()[offset..];
 
     let value_len_in_bytes = size_of::<u8>();
     let (value_len_bytes, rest) = content.split_at(value_len_in_bytes);

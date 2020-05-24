@@ -1,25 +1,36 @@
 use std::convert::TryInto;
 use std::fs::File;
-use std::io;
 use std::io::prelude::*;
+use std::path::Path;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
-struct Opt {
-    #[structopt(short, long, default_value = "content.dat", parse(from_os_str))]
-    content_file: PathBuf,
+enum Opt {
+    Content {
+        #[structopt(short, long, default_value = "content.dat", parse(from_os_str))]
+        file: PathBuf,
 
-    #[structopt()]
-    id: u32,
+        #[structopt()]
+        id: u32,
+    },
 }
 
-fn main() -> io::Result<()> {
+fn main() {
     let opt = Opt::from_args();
 
-    let mut f = File::open(opt.content_file)?;
+    match opt {
+        Opt::Content { file, id } => {
+            let result = run_content(&file, id);
+            println!("{}", result);
+        }
+    };
+}
+
+fn run_content(file: &Path, id: u32) -> String {
+    let mut f = File::open(file).unwrap();
     let mut buf = Vec::new();
-    f.read_to_end(&mut buf)?;
+    f.read_to_end(&mut buf).unwrap();
 
     let header_length_field_in_bytes = std::mem::size_of::<i32>();
     let (length_bytes, mut header) = buf.split_at(header_length_field_in_bytes);
@@ -45,18 +56,17 @@ fn main() -> io::Result<()> {
 
     let content = header;
 
-    let id = opt.id as usize;
+    let id = id as usize;
+
     if let Some(e) = read_entry(&offsets, &content, id) {
-        println!("{}", e);
+        e.to_string()
     } else {
-        println!(
+        format!(
             "Given invalid ID {}. ID must be in range (0..{})",
             id,
             offsets.len() - 1
-        );
+        )
     }
-
-    Ok(())
 }
 
 fn read_entry<'a>(offsets: &[i32], content: &'a [u8], pos: usize) -> Option<&'a str> {

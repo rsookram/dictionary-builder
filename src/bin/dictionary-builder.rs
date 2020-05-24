@@ -66,12 +66,12 @@ impl InputEntry {
 }
 
 #[derive(Debug)]
-struct Header {
+struct ContentHeader {
     size_bytes: i32,
     offsets: Vec<i16>,
 }
 
-impl Header {
+impl ContentHeader {
     fn for_entries(entries: &[InputEntry]) -> Self {
         let length_field_size_bytes = 4;
         let entry_size_bytes = 2;
@@ -86,7 +86,7 @@ impl Header {
             previous_length = e.encode().len() as i16;
         }
 
-        Header {
+        Self {
             size_bytes,
             offsets,
         }
@@ -139,15 +139,15 @@ fn main() {
 
     entries.sort_unstable_by_key(|e| (e.word.clone(), e.type_id, e.definitions.clone()));
 
-    let header = Header::for_entries(&entries);
-    println!("{:#?}", header);
+    let content_header = ContentHeader::for_entries(&entries);
+    println!("{:#?}", content_header);
 
     for entry in &entries {
         println!("{:?}", entry);
     }
 
     let mut content_file = File::create(opt.output_content_file).unwrap();
-    content_file.write_all(&header.encode()).unwrap();
+    content_file.write_all(&content_header.encode()).unwrap();
     for e in &entries {
         content_file.write_all(&e.encode()).unwrap();
     }

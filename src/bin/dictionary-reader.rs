@@ -2,8 +2,10 @@ use std::collections::BTreeMap;
 use std::convert::TryInto;
 use std::fs::File;
 use std::io::prelude::*;
+use std::mem::size_of;
 use std::path::Path;
 use std::path::PathBuf;
+use std::str;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -60,12 +62,12 @@ fn run_content(file: &Path, id: u32) -> String {
     let mut buf = Vec::new();
     f.read_to_end(&mut buf).unwrap();
 
-    let header_length_field_in_bytes = std::mem::size_of::<i32>();
+    let header_length_field_in_bytes = size_of::<i32>();
     let (length_bytes, mut header) = buf.split_at(header_length_field_in_bytes);
     let header_length = i32::from_be_bytes(length_bytes.try_into().unwrap()) as u32;
 
     let mut offsets = Vec::new();
-    let header_entry_field_in_bytes = std::mem::size_of::<i16>();
+    let header_entry_field_in_bytes = size_of::<i16>();
     let num_header_entries =
         (header_length - header_length_field_in_bytes as u32) / header_entry_field_in_bytes as u32;
 
@@ -102,12 +104,12 @@ fn run_lookup(file: &Path, ch: char) -> LookupEntry {
     let mut buf = Vec::new();
     f.read_to_end(&mut buf).unwrap();
 
-    let header_length_field_in_bytes = std::mem::size_of::<i32>();
+    let header_length_field_in_bytes = size_of::<i32>();
     let (length_bytes, mut header) = buf.split_at(header_length_field_in_bytes);
     let header_length = i32::from_be_bytes(length_bytes.try_into().unwrap()) as u32;
 
-    let index_char_length = std::mem::size_of::<i32>();
-    let index_offset_length = std::mem::size_of::<i32>();
+    let index_char_length = size_of::<i32>();
+    let index_offset_length = size_of::<i32>();
     let index_entry_field_in_bytes = index_char_length + index_offset_length;
     let num_index_entries =
         (header_length - header_length_field_in_bytes as u32) / index_entry_field_in_bytes as u32;
@@ -130,7 +132,7 @@ fn run_lookup(file: &Path, ch: char) -> LookupEntry {
 
     let mut content = &header[offset..];
 
-    let value_len_in_bytes = std::mem::size_of::<u8>();
+    let value_len_in_bytes = size_of::<u8>();
     let (value_len_bytes, rest) = content.split_at(value_len_in_bytes);
     content = rest;
 
@@ -139,18 +141,18 @@ fn run_lookup(file: &Path, ch: char) -> LookupEntry {
     let (value_bytes, rest) = content.split_at(value_len as usize);
     content = rest;
 
-    let value = std::str::from_utf8(value_bytes).unwrap();
+    let value = str::from_utf8(value_bytes).unwrap();
 
     let mut result = LookupEntry::new(value.to_string());
 
-    let num_ids_len_in_bytes = std::mem::size_of::<i16>();
+    let num_ids_len_in_bytes = size_of::<i16>();
     let (num_ids_bytes, rest) = content.split_at(num_ids_len_in_bytes);
     content = rest;
 
     let num_ids = i16::from_be_bytes(num_ids_bytes.try_into().unwrap());
 
     for _ in 0..num_ids {
-        let id_len_in_bytes = std::mem::size_of::<i32>();
+        let id_len_in_bytes = size_of::<i32>();
         let (id_bytes, rest) = content.split_at(id_len_in_bytes);
         content = rest;
 
@@ -175,5 +177,5 @@ fn read_entry<'a>(offsets: &[i32], content: &'a [u8], pos: usize) -> Option<&'a 
         content.len()
     };
 
-    std::str::from_utf8(&content[start..end]).ok()
+    str::from_utf8(&content[start..end]).ok()
 }

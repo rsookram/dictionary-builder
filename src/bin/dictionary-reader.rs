@@ -52,8 +52,10 @@ fn main() {
             println!("{}", result);
         }
         Opt::Lookup { file, ch } => {
-            let result = run_lookup(&file, ch);
-            println!("{:?}", result);
+            let results = run_lookup(&file, ch);
+            for r in results {
+                println!("{:?}", r);
+            }
         }
     };
 }
@@ -97,7 +99,7 @@ fn run_content(file: &Path, id: u32) -> String {
     }
 }
 
-fn run_lookup(file: &Path, ch: char) -> LookupEntry {
+fn run_lookup(file: &Path, ch: char) -> Vec<LookupEntry> {
     let mut f = File::open(file).unwrap();
     let mut buf = Vec::new();
     f.read_to_end(&mut buf).unwrap();
@@ -127,35 +129,47 @@ fn run_lookup(file: &Path, ch: char) -> LookupEntry {
 
     let mut content = &rdr.into_inner()[offset..];
 
-    let value_len_in_bytes = size_of::<u8>();
-    let (value_len_bytes, rest) = content.split_at(value_len_in_bytes);
-    content = rest;
+    let mut entries = Vec::new();
 
-    let value_len = u8::from_be_bytes(value_len_bytes.try_into().unwrap());
+    loop {
+        if content.is_empty() {
+            break;
+        }
 
-    let (value_bytes, rest) = content.split_at(value_len as usize);
-    content = rest;
-
-    let value = str::from_utf8(value_bytes).unwrap();
-
-    let mut result = LookupEntry::new(value.to_string());
-
-    let num_ids_len_in_bytes = size_of::<i16>();
-    let (num_ids_bytes, rest) = content.split_at(num_ids_len_in_bytes);
-    content = rest;
-
-    let num_ids = i16::from_be_bytes(num_ids_bytes.try_into().unwrap());
-
-    for _ in 0..num_ids {
-        let id_len_in_bytes = size_of::<i32>();
-        let (id_bytes, rest) = content.split_at(id_len_in_bytes);
+        let value_len_in_bytes = size_of::<u8>();
+        let (value_len_bytes, rest) = content.split_at(value_len_in_bytes);
         content = rest;
 
-        let id = i32::from_be_bytes(id_bytes.try_into().unwrap());
-        result.ids.push(id);
+        let value_len = u8::from_be_bytes(value_len_bytes.try_into().unwrap());
+
+        let (value_bytes, rest) = content.split_at(value_len as usize);
+        content = rest;
+
+        let value = str::from_utf8(value_bytes).unwrap();
+        if !value.starts_with(ch) {
+            break;
+        }
+
+        let mut result = LookupEntry::new(value.to_string());
+
+        let num_ids_len_in_bytes = size_of::<i16>();
+        let (num_ids_bytes, rest) = content.split_at(num_ids_len_in_bytes);
+        content = rest;
+
+        let num_ids = i16::from_be_bytes(num_ids_bytes.try_into().unwrap());
+
+        for _ in 0..num_ids {
+            let id_len_in_bytes = size_of::<i32>();
+            let (id_bytes, rest) = content.split_at(id_len_in_bytes);
+            content = rest;
+
+            let id = i32::from_be_bytes(id_bytes.try_into().unwrap());
+            result.ids.push(id);
+        }
+        entries.push(result);
     }
 
-    result
+    entries
 }
 
 fn read_entry<'a>(offsets: &[i32], content: &'a [u8], pos: usize) -> Option<&'a str> {

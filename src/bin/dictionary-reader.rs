@@ -65,23 +65,20 @@ fn run_content(file: &Path, id: u32) -> String {
 
     let mut rdr = std::io::Cursor::new(buf);
 
-    let header_length_field_in_bytes = size_of::<i32>();
+    let header_length_field_in_bytes = size_of::<i32>() as u32;
     let header_length = rdr.read_i32::<BigEndian>().unwrap() as u32;
 
     let mut offsets = Vec::new();
-    let header_entry_field_in_bytes = size_of::<i16>();
+    let header_entry_field_in_bytes = size_of::<i16>() as u32;
     let num_header_entries =
-        (header_length - header_length_field_in_bytes as u32) / header_entry_field_in_bytes as u32;
+        (header_length - header_length_field_in_bytes) / header_entry_field_in_bytes;
 
-    for i in 0..num_header_entries {
+    let mut previous = 0;
+    for _ in 0..num_header_entries {
         let relative = rdr.read_i16::<BigEndian>().unwrap() as i32;
 
-        let previous = if offsets.is_empty() {
-            0
-        } else {
-            offsets[(i - 1) as usize]
-        };
         offsets.push(previous + relative);
+        previous = relative;
     }
 
     let pos = rdr.position() as usize;

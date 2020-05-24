@@ -1,3 +1,4 @@
+use byteorder::{BigEndian, ReadBytesExt};
 use std::collections::BTreeMap;
 use std::convert::TryInto;
 use std::fs::File;
@@ -62,9 +63,10 @@ fn run_content(file: &Path, id: u32) -> String {
     let mut buf = Vec::new();
     f.read_to_end(&mut buf).unwrap();
 
+    let mut rdr = std::io::Cursor::new(buf);
+
     let header_length_field_in_bytes = size_of::<i32>();
-    let (length_bytes, mut header) = buf.split_at(header_length_field_in_bytes);
-    let header_length = i32::from_be_bytes(length_bytes.try_into().unwrap()) as u32;
+    let header_length = rdr.read_i32::<BigEndian>().unwrap() as u32;
 
     let mut offsets = Vec::new();
     let header_entry_field_in_bytes = size_of::<i16>();
@@ -72,9 +74,7 @@ fn run_content(file: &Path, id: u32) -> String {
         (header_length - header_length_field_in_bytes as u32) / header_entry_field_in_bytes as u32;
 
     for i in 0..num_header_entries {
-        let (relative_bytes, rest) = header.split_at(header_entry_field_in_bytes);
-        header = rest;
-        let relative = i16::from_be_bytes(relative_bytes.try_into().unwrap()) as i32;
+        let relative = rdr.read_i16::<BigEndian>().unwrap() as i32;
 
         let previous = if offsets.is_empty() {
             0
@@ -84,7 +84,8 @@ fn run_content(file: &Path, id: u32) -> String {
         offsets.push(previous + relative);
     }
 
-    let content = header;
+    let pos = rdr.position() as usize;
+    let content = &rdr.into_inner()[pos..];
 
     let id = id as usize;
 

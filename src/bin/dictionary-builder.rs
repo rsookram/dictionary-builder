@@ -1,6 +1,7 @@
 use rusqlite::params;
 use rusqlite::Connection;
 use rusqlite::OpenFlags;
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -21,7 +22,6 @@ CREATE TABLE Entry(
 CREATE TABLE Lookup(
     reading       TEXT NOT NULL,
     id            INTEGER NOT NULL,
-    PRIMARY KEY (reading, id),
     FOREIGN KEY(id) REFERENCES Entry(id)
 );
 ```
@@ -66,6 +66,12 @@ impl InputEntry {
 }
 
 #[derive(Debug)]
+struct InputLookupEntry {
+    reading: String,
+    id: i32,
+}
+
+#[derive(Debug)]
 struct ContentHeader {
     size_bytes: i32,
     offsets: Vec<i16>,
@@ -105,6 +111,39 @@ impl ContentHeader {
     }
 }
 
+#[derive(Debug)]
+struct LookupHeader {
+    entries: Vec<(u32, i32)>,
+}
+
+impl LookupHeader {
+    fn for_entries(lookup: &BTreeMap<String, Vec<i32>>) -> Self {
+        let mut entries = Vec::new();
+
+        let mut current_offset = 0_i32;
+        for (value, ids) in lookup {
+            let first_char = value.chars().next().unwrap() as u32;
+            if entries.is_empty() {
+                entries.push((first_char, current_offset));
+            }
+
+            let (previous_first_char, _) = entries.last().unwrap();
+            if first_char != *previous_first_char {
+                entries.push((first_char, current_offset));
+            }
+
+            let length_value_in_bytes = value.as_bytes().len() as i32;
+            let length_ids_in_bytes = (ids.len() * std::mem::size_of::<i32>()) as i32;
+            let value_length_bytes = 1;
+            let ids_length_bytes = 2;
+            current_offset +=
+                value_length_bytes + length_value_in_bytes + ids_length_bytes + length_ids_in_bytes
+        }
+
+        Self { entries }
+    }
+}
+
 fn main() {
     let opt = Opt::from_args();
 
@@ -138,6 +177,37 @@ fn main() {
     }
 
     entries.sort_unstable_by_key(|e| (e.word.clone(), e.type_id, e.definitions.clone()));
+
+    // Map (type, ID) from original DB to final ID (index in entries Vec)
+    let mut id_mapping = BTreeMap::new();
+    for (idx, e) in entries.iter().enumerate() {
+        id_mapping.insert((e.type_id, e.id), idx as i32);
+    }
+
+    let mut lookup = BTreeMap::new();
+    for (idx, path) in opt.input_files.iter().enumerate() {
+        let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+
+        let mut stmt = conn.prepare("SELECT reading, id FROM Lookup").unwrap();
+        stmt.query_map(params![], |row| {
+            Ok(InputLookupEntry {
+                reading: row.get(0)?,
+                id: row.get(1)?,
+            })
+        })
+        .unwrap()
+        .map(Result::unwrap)
+        .for_each(|e| {
+            let entry = lookup.entry(e.reading).or_insert_with(Vec::new);
+
+            let mapped_id = id_mapping[&(idx as i8, e.id as u32)];
+
+            (*entry).push(mapped_id);
+        });
+    }
+
+    let lookup_header = LookupHeader::for_entries(&lookup);
+    println!("{:#?}", lookup_header);
 
     let content_header = ContentHeader::for_entries(&entries);
     println!("{:#?}", content_header);

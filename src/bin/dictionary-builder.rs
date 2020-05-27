@@ -144,6 +144,25 @@ impl LookupHeader {
     }
 }
 
+#[derive(Debug)]
+struct LookupValues {
+    entries: Vec<(String, Vec<i32>)>,
+}
+
+impl LookupValues {
+    fn for_entries(lookup: BTreeMap<String, Vec<i32>>) -> Self {
+        let mut entries: Vec<(String, Vec<i32>)> = lookup.into_iter().collect();
+
+        entries.sort_unstable_by_key(|(reading, _)| reading.clone());
+
+        for (_, ids) in &mut entries {
+            ids.sort_unstable_by_key(|&i| i);
+        }
+
+        Self { entries }
+    }
+}
+
 fn main() {
     let opt = Opt::from_args();
 
@@ -208,6 +227,9 @@ fn main() {
 
     let lookup_header = LookupHeader::for_entries(&lookup);
     println!("{:#?}", lookup_header);
+
+    let lookup_values = LookupValues::for_entries(lookup);
+    println!("{:#?}", lookup_values);
 
     let content_header = ContentHeader::for_entries(&entries);
     println!("{:#?}", content_header);

@@ -31,6 +31,10 @@ struct Opt {
     #[structopt(long, parse(from_os_str))]
     output_content_file: PathBuf,
 
+    /// Path to write the lookup file to
+    #[structopt(long, parse(from_os_str))]
+    output_lookup_file: PathBuf,
+
     /// SQLite DB files to process
     #[structopt(name = "FILE", parse(from_os_str))]
     input_files: Vec<PathBuf>,
@@ -142,6 +146,24 @@ impl LookupHeader {
 
         Self { entries }
     }
+
+    fn encode(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+
+        let header_length_field_bytes = std::mem::size_of::<i32>() as i32;
+        let header_entry_size_bytes =
+            (std::mem::size_of::<u32>() + std::mem::size_of::<i32>()) as i32;
+        let header_size =
+            header_length_field_bytes + (header_entry_size_bytes * (self.entries.len() as i32));
+        bytes.extend_from_slice(&header_size.to_be_bytes());
+
+        for (first_char, offset) in &self.entries {
+            bytes.extend_from_slice(&first_char.to_be_bytes());
+            bytes.extend_from_slice(&offset.to_be_bytes());
+        }
+
+        bytes
+    }
 }
 
 #[derive(Debug)]
@@ -225,12 +247,6 @@ fn main() {
         });
     }
 
-    let lookup_header = LookupHeader::for_entries(&lookup);
-    println!("{:#?}", lookup_header);
-
-    let lookup_values = LookupValues::for_entries(lookup);
-    println!("{:#?}", lookup_values);
-
     let content_header = ContentHeader::for_entries(&entries);
     println!("{:#?}", content_header);
 
@@ -243,4 +259,13 @@ fn main() {
     for e in &entries {
         content_file.write_all(&e.encode()).unwrap();
     }
+
+    let lookup_header = LookupHeader::for_entries(&lookup);
+    println!("{:#?}", lookup_header);
+
+    let lookup_values = LookupValues::for_entries(lookup);
+    println!("{:#?}", lookup_values);
+
+    let mut lookup_file = File::create(opt.output_lookup_file).unwrap();
+    lookup_file.write_all(&lookup_header.encode()).unwrap();
 }

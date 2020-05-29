@@ -268,4 +268,19 @@ fn main() {
 
     let mut lookup_file = File::create(opt.output_lookup_file).unwrap();
     lookup_file.write_all(&lookup_header.encode()).unwrap();
+
+    for v in &lookup_values.entries {
+        let (value, ids) = v;
+        let encoded_value = value.as_bytes();
+        lookup_file
+            .write_all(&(encoded_value.len() as u8).to_be_bytes())
+            .unwrap();
+        lookup_file.write_all(encoded_value).unwrap();
+        lookup_file
+            .write_all(&(ids.len() as i16).to_be_bytes())
+            .unwrap();
+        for id in ids {
+            lookup_file.write_all(&id.to_be_bytes()).unwrap();
+        }
+    }
 }

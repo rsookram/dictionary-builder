@@ -1,3 +1,4 @@
+use anyhow::Result;
 use rusqlite::params;
 use rusqlite::Connection;
 use rusqlite::OpenFlags;
@@ -185,21 +186,20 @@ impl LookupValues {
     }
 }
 
-fn main() {
+fn main() -> Result<()> {
     let opt = Opt::from_args();
 
     if opt.input_files.is_empty() {
         println!("No files to process");
-        return;
+        return Ok(());
     }
 
     let mut entries = Vec::new();
     for (idx, path) in opt.input_files.iter().enumerate() {
-        let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
 
-        let mut stmt = conn
-            .prepare("SELECT id, word, variants, reading, definitions FROM Entry")
-            .unwrap();
+        let mut stmt =
+            conn.prepare("SELECT id, word, variants, reading, definitions FROM Entry")?;
         let entry_iter = stmt
             .query_map(params![], |row| {
                 Ok(InputEntry {
@@ -210,8 +210,7 @@ fn main() {
                     reading: row.get(3)?,
                     definitions: row.get(4)?,
                 })
-            })
-            .unwrap()
+            })?
             .map(Result::unwrap);
 
         entries.extend(entry_iter);
@@ -227,16 +226,15 @@ fn main() {
 
     let mut lookup = BTreeMap::new();
     for (idx, path) in opt.input_files.iter().enumerate() {
-        let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
 
-        let mut stmt = conn.prepare("SELECT reading, id FROM Lookup").unwrap();
+        let mut stmt = conn.prepare("SELECT reading, id FROM Lookup")?;
         stmt.query_map(params![], |row| {
             Ok(InputLookupEntry {
                 reading: row.get(0)?,
                 id: row.get(1)?,
             })
-        })
-        .unwrap()
+        })?
         .map(Result::unwrap)
         .for_each(|e| {
             let entry = lookup.entry(e.reading).or_insert_with(Vec::new);
@@ -248,39 +246,30 @@ fn main() {
     }
 
     let content_header = ContentHeader::for_entries(&entries);
-    println!("{:#?}", content_header);
 
-    for entry in &entries {
-        println!("{:?}", entry);
-    }
-
-    let mut content_file = File::create(opt.output_content_file).unwrap();
-    content_file.write_all(&content_header.encode()).unwrap();
+    let mut content_file = File::create(opt.output_content_file)?;
+    content_file.write_all(&content_header.encode())?;
     for e in &entries {
-        content_file.write_all(&e.encode()).unwrap();
+        content_file.write_all(&e.encode())?;
     }
 
     let lookup_header = LookupHeader::for_entries(&lookup);
-    println!("{:#?}", lookup_header);
 
     let lookup_values = LookupValues::for_entries(lookup);
-    println!("{:#?}", lookup_values);
 
-    let mut lookup_file = File::create(opt.output_lookup_file).unwrap();
-    lookup_file.write_all(&lookup_header.encode()).unwrap();
+    let mut lookup_file = File::create(opt.output_lookup_file)?;
+    lookup_file.write_all(&lookup_header.encode())?;
 
     for v in &lookup_values.entries {
         let (value, ids) = v;
         let encoded_value = value.as_bytes();
-        lookup_file
-            .write_all(&(encoded_value.len() as u8).to_be_bytes())
-            .unwrap();
-        lookup_file.write_all(encoded_value).unwrap();
-        lookup_file
-            .write_all(&(ids.len() as i16).to_be_bytes())
-            .unwrap();
+        lookup_file.write_all(&(encoded_value.len() as u8).to_be_bytes())?;
+        lookup_file.write_all(encoded_value)?;
+        lookup_file.write_all(&(ids.len() as i16).to_be_bytes())?;
         for id in ids {
-            lookup_file.write_all(&id.to_be_bytes()).unwrap();
+            lookup_file.write_all(&id.to_be_bytes())?;
         }
     }
+
+    Ok(())
 }

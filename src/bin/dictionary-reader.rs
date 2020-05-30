@@ -1,3 +1,4 @@
+use anyhow::Result;
 use byteorder::{BigEndian, ReadBytesExt};
 use std::collections::BTreeMap;
 use std::convert::TryInto;
@@ -43,32 +44,34 @@ impl LookupEntry {
     }
 }
 
-fn main() {
+fn main() -> Result<()> {
     let opt = Opt::from_args();
 
     match opt {
         Opt::Content { file, id } => {
-            let result = run_content(&file, id);
+            let result = run_content(&file, id)?;
             println!("{}", result);
         }
         Opt::Lookup { file, ch } => {
-            let results = run_lookup(&file, ch);
+            let results = run_lookup(&file, ch)?;
             for r in results {
                 println!("{:?}", r);
             }
         }
     };
+
+    Ok(())
 }
 
-fn run_content(file: &Path, id: u32) -> String {
-    let mut f = File::open(file).unwrap();
+fn run_content(file: &Path, id: u32) -> Result<String> {
+    let mut f = File::open(file)?;
     let mut buf = Vec::new();
-    f.read_to_end(&mut buf).unwrap();
+    f.read_to_end(&mut buf)?;
 
     let mut rdr = std::io::Cursor::new(buf);
 
     let header_length_field_in_bytes = size_of::<i32>() as u32;
-    let header_length = rdr.read_i32::<BigEndian>().unwrap() as u32;
+    let header_length = rdr.read_i32::<BigEndian>()? as u32;
 
     let mut offsets = Vec::new();
     let header_entry_field_in_bytes = size_of::<i16>() as u32;
@@ -77,7 +80,7 @@ fn run_content(file: &Path, id: u32) -> String {
 
     let mut previous = 0;
     for _ in 0..num_header_entries {
-        let relative = rdr.read_i16::<BigEndian>().unwrap() as i32;
+        let relative = rdr.read_i16::<BigEndian>()? as i32;
 
         offsets.push(previous + relative);
         previous = relative;
@@ -88,7 +91,7 @@ fn run_content(file: &Path, id: u32) -> String {
 
     let id = id as usize;
 
-    if let Some(e) = read_entry(&offsets, &content, id) {
+    let result = if let Some(e) = read_entry(&offsets, &content, id) {
         e.to_string()
     } else {
         format!(
@@ -96,18 +99,20 @@ fn run_content(file: &Path, id: u32) -> String {
             id,
             offsets.len() - 1
         )
-    }
+    };
+
+    Ok(result)
 }
 
-fn run_lookup(file: &Path, ch: char) -> Vec<LookupEntry> {
-    let mut f = File::open(file).unwrap();
+fn run_lookup(file: &Path, ch: char) -> Result<Vec<LookupEntry>> {
+    let mut f = File::open(file)?;
     let mut buf = Vec::new();
-    f.read_to_end(&mut buf).unwrap();
+    f.read_to_end(&mut buf)?;
 
     let mut rdr = std::io::Cursor::new(buf);
 
     let header_length_field_in_bytes = size_of::<i32>();
-    let header_length = rdr.read_i32::<BigEndian>().unwrap() as u32;
+    let header_length = rdr.read_i32::<BigEndian>()? as u32;
 
     let index_char_length = size_of::<i32>();
     let index_offset_length = size_of::<i32>();
@@ -117,8 +122,8 @@ fn run_lookup(file: &Path, ch: char) -> Vec<LookupEntry> {
 
     let mut index = BTreeMap::new();
     for _ in 0..num_index_entries {
-        let char_num = rdr.read_i32::<BigEndian>().unwrap() as u32;
-        let offset = rdr.read_i32::<BigEndian>().unwrap();
+        let char_num = rdr.read_i32::<BigEndian>()? as u32;
+        let offset = rdr.read_i32::<BigEndian>()?;
 
         let ch = std::char::from_u32(char_num).unwrap();
 
@@ -140,12 +145,12 @@ fn run_lookup(file: &Path, ch: char) -> Vec<LookupEntry> {
         let (value_len_bytes, rest) = content.split_at(value_len_in_bytes);
         content = rest;
 
-        let value_len = u8::from_be_bytes(value_len_bytes.try_into().unwrap());
+        let value_len = u8::from_be_bytes(value_len_bytes.try_into()?);
 
         let (value_bytes, rest) = content.split_at(value_len as usize);
         content = rest;
 
-        let value = str::from_utf8(value_bytes).unwrap();
+        let value = str::from_utf8(value_bytes)?;
         if !value.starts_with(ch) {
             break;
         }
@@ -156,20 +161,20 @@ fn run_lookup(file: &Path, ch: char) -> Vec<LookupEntry> {
         let (num_ids_bytes, rest) = content.split_at(num_ids_len_in_bytes);
         content = rest;
 
-        let num_ids = i16::from_be_bytes(num_ids_bytes.try_into().unwrap());
+        let num_ids = i16::from_be_bytes(num_ids_bytes.try_into()?);
 
         for _ in 0..num_ids {
             let id_len_in_bytes = size_of::<i32>();
             let (id_bytes, rest) = content.split_at(id_len_in_bytes);
             content = rest;
 
-            let id = i32::from_be_bytes(id_bytes.try_into().unwrap());
+            let id = i32::from_be_bytes(id_bytes.try_into()?);
             result.ids.push(id);
         }
         entries.push(result);
     }
 
-    entries
+    Ok(entries)
 }
 
 fn read_entry<'a>(offsets: &[i32], content: &'a [u8], pos: usize) -> Option<&'a str> {

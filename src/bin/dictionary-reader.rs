@@ -78,12 +78,11 @@ fn run_content(file: &Path, id: u32) -> Result<String> {
     let num_header_entries =
         (header_length - header_length_field_in_bytes) / header_entry_field_in_bytes;
 
-    let mut previous = 0;
-    for _ in 0..num_header_entries {
+    for i in 0..num_header_entries {
         let relative = rdr.read_i16::<BigEndian>()? as i32;
 
+        let previous = if i > 0 { offsets[i as usize - 1] } else { 0 };
         offsets.push(previous + relative);
-        previous = relative;
     }
 
     let pos = rdr.position() as usize;

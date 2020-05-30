@@ -180,7 +180,7 @@ impl LookupValues {
         entries.sort_unstable_by(|(a, _), (b, _)| a.cmp(&b));
 
         for (_, ids) in &mut entries {
-            ids.sort_unstable_by_key(|&i| i);
+            ids.sort_unstable();
         }
 
         Self { entries }
@@ -268,8 +268,7 @@ fn main() -> Result<()> {
     let mut lookup_file = BufWriter::new(lookup_file);
     lookup_file.write_all(&lookup_header.encode())?;
 
-    for v in &lookup_values.entries {
-        let (value, ids) = v;
+    for (value, ids) in &lookup_values.entries {
         let encoded_value = value.as_bytes();
         lookup_file.write_all(&(encoded_value.len() as u8).to_be_bytes())?;
         lookup_file.write_all(encoded_value)?;

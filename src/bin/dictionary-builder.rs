@@ -177,7 +177,7 @@ impl LookupValues {
     fn for_entries(lookup: BTreeMap<String, Vec<i32>>) -> Self {
         let mut entries: Vec<(String, Vec<i32>)> = lookup.into_iter().collect();
 
-        entries.sort_unstable_by_key(|(reading, _)| reading.clone());
+        entries.sort_unstable_by(|(a, _), (b, _)| a.cmp(&b));
 
         for (_, ids) in &mut entries {
             ids.sort_unstable_by_key(|&i| i);
@@ -217,7 +217,12 @@ fn main() -> Result<()> {
         entries.extend(entry_iter);
     }
 
-    entries.sort_unstable_by_key(|e| (e.word.clone(), e.type_id, e.definitions.clone()));
+    entries.sort_unstable_by(|a, b| {
+        a.word
+            .cmp(&b.word)
+            .then(a.type_id.cmp(&b.type_id))
+            .then(a.definitions.cmp(&b.definitions))
+    });
 
     // Map (type, ID) from original DB to final ID (index in entries Vec)
     let mut id_mapping = BTreeMap::new();

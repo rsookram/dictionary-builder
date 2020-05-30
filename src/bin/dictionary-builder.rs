@@ -4,6 +4,7 @@ use rusqlite::Connection;
 use rusqlite::OpenFlags;
 use std::collections::BTreeMap;
 use std::fs::File;
+use std::io::BufWriter;
 use std::io::Write;
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -247,7 +248,8 @@ fn main() -> Result<()> {
 
     let content_header = ContentHeader::for_entries(&entries);
 
-    let mut content_file = File::create(opt.output_content_file)?;
+    let content_file = File::create(opt.output_content_file)?;
+    let mut content_file = BufWriter::new(content_file);
     content_file.write_all(&content_header.encode())?;
     for e in &entries {
         content_file.write_all(&e.encode())?;
@@ -257,7 +259,8 @@ fn main() -> Result<()> {
 
     let lookup_values = LookupValues::for_entries(lookup);
 
-    let mut lookup_file = File::create(opt.output_lookup_file)?;
+    let lookup_file = File::create(opt.output_lookup_file)?;
+    let mut lookup_file = BufWriter::new(lookup_file);
     lookup_file.write_all(&lookup_header.encode())?;
 
     for v in &lookup_values.entries {

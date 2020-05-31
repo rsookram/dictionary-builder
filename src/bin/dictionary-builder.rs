@@ -52,20 +52,26 @@ struct InputEntry {
     definitions: String,
 }
 
-impl InputEntry {
-    fn encode(&self) -> Vec<u8> {
+impl From<InputEntry> for Vec<u8> {
+    fn from(entry: InputEntry) -> Self {
         let mut bytes = Vec::new();
 
         let separator = b"#";
 
-        bytes.extend_from_slice(&self.type_id.to_be_bytes());
-        bytes.extend_from_slice(self.word.as_bytes());
+        bytes.extend_from_slice(&entry.type_id.to_be_bytes());
+        bytes.extend_from_slice(entry.word.as_bytes());
         bytes.extend_from_slice(separator);
-        bytes.extend_from_slice(self.variants.as_ref().unwrap_or(&"".to_string()).as_bytes());
+        bytes.extend_from_slice(
+            entry
+                .variants
+                .as_ref()
+                .unwrap_or(&"".to_string())
+                .as_bytes(),
+        );
         bytes.extend_from_slice(separator);
-        bytes.extend_from_slice(self.reading.as_ref().unwrap_or(&"".to_string()).as_bytes());
+        bytes.extend_from_slice(entry.reading.as_ref().unwrap_or(&"".to_string()).as_bytes());
         bytes.extend_from_slice(separator);
-        bytes.extend_from_slice(self.definitions.as_bytes());
+        bytes.extend_from_slice(entry.definitions.as_bytes());
 
         bytes
     }
@@ -103,13 +109,15 @@ impl ContentHeader {
             offsets,
         }
     }
+}
 
-    fn encode(&self) -> Vec<u8> {
+impl From<ContentHeader> for Vec<u8> {
+    fn from(header: ContentHeader) -> Self {
         let mut bytes = Vec::new();
 
-        bytes.extend_from_slice(&self.size_bytes.to_be_bytes());
+        bytes.extend_from_slice(&header.size_bytes.to_be_bytes());
 
-        for offset in &self.offsets {
+        for offset in &header.offsets {
             bytes.extend_from_slice(&offset.to_be_bytes());
         }
 
@@ -148,18 +156,20 @@ impl LookupHeader {
 
         Self { entries }
     }
+}
 
-    fn encode(&self) -> Vec<u8> {
+impl From<LookupHeader> for Vec<u8> {
+    fn from(header: LookupHeader) -> Self {
         let mut bytes = Vec::new();
 
         let header_length_field_bytes = std::mem::size_of::<i32>() as i32;
         let header_entry_size_bytes =
             (std::mem::size_of::<u32>() + std::mem::size_of::<i32>()) as i32;
         let header_size =
-            header_length_field_bytes + (header_entry_size_bytes * (self.entries.len() as i32));
+            header_length_field_bytes + (header_entry_size_bytes * (header.entries.len() as i32));
         bytes.extend_from_slice(&header_size.to_be_bytes());
 
-        for (first_char, offset) in &self.entries {
+        for (first_char, offset) in &header.entries {
             bytes.extend_from_slice(&first_char.to_be_bytes());
             bytes.extend_from_slice(&offset.to_be_bytes());
         }
@@ -251,12 +261,13 @@ fn main() -> Result<()> {
         });
     }
 
-    let entries = entries.into_iter().map(|e| e.encode()).collect::<Vec<_>>();
+    let entries = entries.into_iter().map(|e| e.into()).collect::<Vec<_>>();
     let content_header = ContentHeader::for_entries(&entries);
 
     let content_file = File::create(opt.output_content_file)?;
     let mut content_file = BufWriter::new(content_file);
-    content_file.write_all(&content_header.encode())?;
+    let content_header: Vec<u8> = content_header.into();
+    content_file.write_all(&content_header)?;
     for e in &entries {
         content_file.write_all(e)?;
     }
@@ -267,7 +278,8 @@ fn main() -> Result<()> {
 
     let lookup_file = File::create(opt.output_lookup_file)?;
     let mut lookup_file = BufWriter::new(lookup_file);
-    lookup_file.write_all(&lookup_header.encode())?;
+    let lookup_header: Vec<u8> = lookup_header.into();
+    lookup_file.write_all(&lookup_header)?;
 
     for (value, ids) in &lookup_values.entries {
         let encoded_value = value.as_bytes();

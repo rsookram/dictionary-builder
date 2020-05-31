@@ -6,8 +6,8 @@ pub struct Header {
 
 impl Header {
     pub fn for_entries(entries: &[Vec<u8>]) -> Self {
-        let length_field_size_bytes = 4;
-        let entry_size_bytes = 2;
+        let length_field_size_bytes = std::mem::size_of::<i32>() as i32;
+        let entry_size_bytes = std::mem::size_of::<i16>() as i32;
 
         let size_bytes = length_field_size_bytes + (entry_size_bytes * entries.len() as i32);
 

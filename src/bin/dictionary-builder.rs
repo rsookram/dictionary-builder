@@ -84,7 +84,7 @@ struct ContentHeader {
 }
 
 impl ContentHeader {
-    fn for_entries(entries: &[InputEntry]) -> Self {
+    fn for_entries(entries: &[Vec<u8>]) -> Self {
         let length_field_size_bytes = 4;
         let entry_size_bytes = 2;
 
@@ -95,7 +95,7 @@ impl ContentHeader {
         let mut previous_length = 0;
         for e in entries {
             offsets.push(previous_length);
-            previous_length = e.encode().len() as i16;
+            previous_length = e.len() as i16;
         }
 
         Self {
@@ -251,13 +251,14 @@ fn main() -> Result<()> {
         });
     }
 
+    let entries = entries.into_iter().map(|e| e.encode()).collect::<Vec<_>>();
     let content_header = ContentHeader::for_entries(&entries);
 
     let content_file = File::create(opt.output_content_file)?;
     let mut content_file = BufWriter::new(content_file);
     content_file.write_all(&content_header.encode())?;
     for e in &entries {
-        content_file.write_all(&e.encode())?;
+        content_file.write_all(e)?;
     }
 
     let lookup_header = LookupHeader::for_entries(&lookup);

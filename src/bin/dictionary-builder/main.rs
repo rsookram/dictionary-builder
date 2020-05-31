@@ -1,3 +1,5 @@
+mod sql;
+
 use anyhow::Result;
 use rusqlite::params;
 use rusqlite::Connection;
@@ -40,47 +42,6 @@ struct Opt {
     /// SQLite DB files to process
     #[structopt(name = "FILE", parse(from_os_str))]
     input_files: Vec<PathBuf>,
-}
-
-#[derive(Debug)]
-struct InputEntry {
-    type_id: i8,
-    id: u32,
-    word: String,
-    variants: Option<String>,
-    reading: Option<String>,
-    definitions: String,
-}
-
-impl From<InputEntry> for Vec<u8> {
-    fn from(entry: InputEntry) -> Self {
-        let mut bytes = Vec::new();
-
-        let separator = b"#";
-
-        bytes.extend_from_slice(&entry.type_id.to_be_bytes());
-        bytes.extend_from_slice(entry.word.as_bytes());
-        bytes.extend_from_slice(separator);
-        bytes.extend_from_slice(
-            entry
-                .variants
-                .as_ref()
-                .unwrap_or(&"".to_string())
-                .as_bytes(),
-        );
-        bytes.extend_from_slice(separator);
-        bytes.extend_from_slice(entry.reading.as_ref().unwrap_or(&"".to_string()).as_bytes());
-        bytes.extend_from_slice(separator);
-        bytes.extend_from_slice(entry.definitions.as_bytes());
-
-        bytes
-    }
-}
-
-#[derive(Debug)]
-struct InputLookupEntry {
-    reading: String,
-    id: i32,
 }
 
 #[derive(Debug)]
@@ -213,7 +174,7 @@ fn main() -> Result<()> {
             conn.prepare("SELECT id, word, variants, reading, definitions FROM Entry")?;
         let entry_iter = stmt
             .query_map(params![], |row| {
-                Ok(InputEntry {
+                Ok(sql::Entry {
                     type_id: idx as i8,
                     id: row.get(0)?,
                     word: row.get(1)?,
@@ -246,7 +207,7 @@ fn main() -> Result<()> {
 
         let mut stmt = conn.prepare("SELECT reading, id FROM Lookup")?;
         stmt.query_map(params![], |row| {
-            Ok(InputLookupEntry {
+            Ok(sql::LookupEntry {
                 reading: row.get(0)?,
                 id: row.get(1)?,
             })

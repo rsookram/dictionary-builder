@@ -1,3 +1,4 @@
+mod content;
 mod lookup;
 mod sql;
 
@@ -43,48 +44,6 @@ struct Opt {
     /// SQLite DB files to process
     #[structopt(name = "FILE", parse(from_os_str))]
     input_files: Vec<PathBuf>,
-}
-
-#[derive(Debug)]
-struct ContentHeader {
-    size_bytes: i32,
-    offsets: Vec<i16>,
-}
-
-impl ContentHeader {
-    fn for_entries(entries: &[Vec<u8>]) -> Self {
-        let length_field_size_bytes = 4;
-        let entry_size_bytes = 2;
-
-        let size_bytes = length_field_size_bytes + (entry_size_bytes * entries.len() as i32);
-
-        let mut offsets = Vec::with_capacity(entries.len());
-
-        let mut previous_length = 0;
-        for e in entries {
-            offsets.push(previous_length);
-            previous_length = e.len() as i16;
-        }
-
-        Self {
-            size_bytes,
-            offsets,
-        }
-    }
-}
-
-impl From<ContentHeader> for Vec<u8> {
-    fn from(header: ContentHeader) -> Self {
-        let mut bytes = Vec::new();
-
-        bytes.extend_from_slice(&header.size_bytes.to_be_bytes());
-
-        for offset in &header.offsets {
-            bytes.extend_from_slice(&offset.to_be_bytes());
-        }
-
-        bytes
-    }
 }
 
 fn main() -> Result<()> {
@@ -152,7 +111,7 @@ fn main() -> Result<()> {
     }
 
     let entries = entries.into_iter().map(|e| e.into()).collect::<Vec<_>>();
-    let content_header = ContentHeader::for_entries(&entries);
+    let content_header = content::Header::for_entries(&entries);
 
     let content_file = File::create(opt.output_content_file)?;
     let mut content_file = BufWriter::new(content_file);

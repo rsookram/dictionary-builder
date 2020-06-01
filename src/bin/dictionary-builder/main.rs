@@ -10,6 +10,7 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -54,8 +55,28 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    let mut entries = read_entries(&opt.input_files)?;
+
+    sort_entries(&mut entries);
+
+    let id_mapping = build_id_mapping(&entries);
+
+    let lookup = read_lookup(&opt.input_files, &id_mapping)?;
+
+    let entries = entries.into_iter().map(|e| e.into()).collect::<Vec<_>>();
+    let content_header = content::Header::for_entries(&entries);
+    write_content(&opt.output_content_file, content_header, entries)?;
+
+    let lookup_header = lookup::Header::for_entries(&lookup);
+    let lookup_values = lookup::Values::for_entries(lookup);
+    write_lookup(&opt.output_lookup_file, lookup_header, lookup_values)?;
+
+    Ok(())
+}
+
+fn read_entries(inputs: &[PathBuf]) -> Result<Vec<sql::Entry>> {
     let mut entries = Vec::new();
-    for (idx, path) in opt.input_files.iter().enumerate() {
+    for (idx, path) in inputs.iter().enumerate() {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
 
         let mut stmt =
@@ -76,21 +97,15 @@ fn main() -> Result<()> {
         entries.extend(entry_iter);
     }
 
-    entries.sort_unstable_by(|a, b| {
-        a.word
-            .cmp(&b.word)
-            .then(a.type_id.cmp(&b.type_id))
-            .then(a.definitions.cmp(&b.definitions))
-    });
+    Ok(entries)
+}
 
-    // Map (type, ID) from original DB to final ID (index in entries Vec)
-    let mut id_mapping = BTreeMap::new();
-    for (idx, e) in entries.iter().enumerate() {
-        id_mapping.insert((e.type_id, e.id), idx as i32);
-    }
-
+fn read_lookup(
+    inputs: &[PathBuf],
+    id_mapping: &BTreeMap<(i8, u32), i32>,
+) -> Result<BTreeMap<String, Vec<i32>>> {
     let mut lookup = BTreeMap::new();
-    for (idx, path) in opt.input_files.iter().enumerate() {
+    for (idx, path) in inputs.iter().enumerate() {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
 
         let mut stmt = conn.prepare("SELECT reading, id FROM Lookup")?;
@@ -110,27 +125,47 @@ fn main() -> Result<()> {
         });
     }
 
-    let entries = entries.into_iter().map(|e| e.into()).collect::<Vec<_>>();
-    let content_header = content::Header::for_entries(&entries);
+    Ok(lookup)
+}
 
-    let content_file = File::create(opt.output_content_file)?;
-    let mut content_file = BufWriter::new(content_file);
-    let content_header: Vec<u8> = content_header.into();
-    content_file.write_all(&content_header)?;
-    for e in &entries {
-        content_file.write_all(e)?;
+fn sort_entries(entries: &mut [sql::Entry]) {
+    entries.sort_unstable_by(|a, b| {
+        a.word
+            .cmp(&b.word)
+            .then(a.type_id.cmp(&b.type_id))
+            .then(a.definitions.cmp(&b.definitions))
+    });
+}
+
+/// Maps (type, ID) from original DB to final ID (index in entries slice)
+fn build_id_mapping(entries: &[sql::Entry]) -> BTreeMap<(i8, u32), i32> {
+    let mut mapping = BTreeMap::new();
+    for (idx, e) in entries.iter().enumerate() {
+        mapping.insert((e.type_id, e.id), idx as i32);
     }
 
-    let lookup_header = lookup::Header::for_entries(&lookup);
+    mapping
+}
 
-    let lookup_values = lookup::Values::for_entries(lookup);
+fn write_content(path: &Path, header: content::Header, values: Vec<Vec<u8>>) -> Result<()> {
+    let content_file = File::create(path)?;
+    let mut content_file = BufWriter::new(content_file);
+    let content_header: Vec<u8> = header.into();
+    content_file.write_all(&content_header)?;
+    for e in values {
+        content_file.write_all(&e)?;
+    }
 
-    let lookup_file = File::create(opt.output_lookup_file)?;
+    Ok(())
+}
+
+fn write_lookup(path: &Path, header: lookup::Header, values: lookup::Values) -> Result<()> {
+    let lookup_file = File::create(path)?;
     let mut lookup_file = BufWriter::new(lookup_file);
-    let lookup_header: Vec<u8> = lookup_header.into();
+    let lookup_header: Vec<u8> = header.into();
     lookup_file.write_all(&lookup_header)?;
 
-    for (value, ids) in &lookup_values.entries {
+    for (value, ids) in values.entries {
         let encoded_value = value.as_bytes();
         lookup_file.write_all(&(encoded_value.len() as u8).to_be_bytes())?;
         lookup_file.write_all(encoded_value)?;

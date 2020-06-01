@@ -34,11 +34,11 @@ CREATE TABLE Lookup(
 ")]
 struct Opt {
     /// Path to write the content file to
-    #[structopt(long, parse(from_os_str))]
+    #[structopt(long, default_value = "content.dat", parse(from_os_str))]
     output_content_file: PathBuf,
 
     /// Path to write the lookup file to
-    #[structopt(long, parse(from_os_str))]
+    #[structopt(long, default_value = "lookup.dat", parse(from_os_str))]
     output_lookup_file: PathBuf,
 
     /// SQLite DB files to process

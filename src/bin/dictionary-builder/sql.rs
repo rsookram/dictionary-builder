@@ -36,5 +36,5 @@ impl From<Entry> for Vec<u8> {
 #[derive(Debug)]
 pub struct LookupEntry {
     pub reading: String,
-    pub id: i32,
+    pub id: u32,
 }

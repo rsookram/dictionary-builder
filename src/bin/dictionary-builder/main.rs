@@ -1,8 +1,10 @@
 mod content;
+mod id_mapping;
 mod lookup;
 mod sql;
 
 use anyhow::Result;
+use id_mapping::IdMapping;
 use rusqlite::params;
 use rusqlite::Connection;
 use rusqlite::OpenFlags;
@@ -59,7 +61,7 @@ fn main() -> Result<()> {
 
     sort_entries(&mut entries);
 
-    let id_mapping = build_id_mapping(&entries);
+    let id_mapping = IdMapping::new(&entries);
 
     let lookup = read_lookup(&opt.input_files, &id_mapping)?;
 
@@ -100,10 +102,7 @@ fn read_entries(inputs: &[PathBuf]) -> Result<Vec<sql::Entry>> {
     Ok(entries)
 }
 
-fn read_lookup(
-    inputs: &[PathBuf],
-    id_mapping: &BTreeMap<(i8, u32), i32>,
-) -> Result<BTreeMap<String, Vec<i32>>> {
+fn read_lookup(inputs: &[PathBuf], id_mapping: &IdMapping) -> Result<BTreeMap<String, Vec<i32>>> {
     let mut lookup = BTreeMap::new();
     for (idx, path) in inputs.iter().enumerate() {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
@@ -119,7 +118,7 @@ fn read_lookup(
         .for_each(|e| {
             let entry = lookup.entry(e.reading).or_insert_with(Vec::new);
 
-            let mapped_id = id_mapping[&(idx as i8, e.id as u32)];
+            let mapped_id = id_mapping.get(idx as i8, e.id).unwrap();
 
             (*entry).push(mapped_id);
         });
@@ -137,19 +136,10 @@ fn sort_entries(entries: &mut [sql::Entry]) {
     });
 }
 
-/// Maps (type, ID) from original DB to final ID (index in entries slice)
-fn build_id_mapping(entries: &[sql::Entry]) -> BTreeMap<(i8, u32), i32> {
-    let mut mapping = BTreeMap::new();
-    for (idx, e) in entries.iter().enumerate() {
-        mapping.insert((e.type_id, e.id), idx as i32);
-    }
-
-    mapping
-}
-
 fn write_content(path: &Path, header: content::Header, values: Vec<Vec<u8>>) -> Result<()> {
     let content_file = File::create(path)?;
     let mut content_file = BufWriter::new(content_file);
+
     let content_header: Vec<u8> = header.into();
     content_file.write_all(&content_header)?;
     for e in values {
@@ -162,6 +152,7 @@ fn write_content(path: &Path, header: content::Header, values: Vec<Vec<u8>>) -> 
 fn write_lookup(path: &Path, header: lookup::Header, values: lookup::Values) -> Result<()> {
     let lookup_file = File::create(path)?;
     let mut lookup_file = BufWriter::new(lookup_file);
+
     let lookup_header: Vec<u8> = header.into();
     lookup_file.write_all(&lookup_header)?;
 

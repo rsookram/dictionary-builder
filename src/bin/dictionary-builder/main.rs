@@ -165,14 +165,9 @@ fn write_lookup(path: &Path, header: lookup::Header, values: lookup::Values) -> 
     let lookup_header: Vec<u8> = header.into();
     lookup_file.write_all(&lookup_header)?;
 
-    for (value, ids) in values.entries {
-        let encoded_value = value.as_bytes();
-        lookup_file.write_all(&(encoded_value.len() as u8).to_be_bytes())?;
-        lookup_file.write_all(encoded_value)?;
-        lookup_file.write_all(&(ids.len() as i16).to_be_bytes())?;
-        for id in ids {
-            lookup_file.write_all(&id.to_be_bytes())?;
-        }
+    for e in values.entries {
+        let bytes: Vec<u8> = e.into();
+        lookup_file.write_all(&bytes)?;
     }
 
     Ok(())

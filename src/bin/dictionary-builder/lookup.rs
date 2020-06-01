@@ -55,7 +55,7 @@ impl From<Header> for Vec<u8> {
 
 #[derive(Debug)]
 pub struct Values {
-    pub entries: Vec<(String, Vec<i32>)>,
+    pub entries: Vec<Entry>,
 }
 
 impl Values {
@@ -68,6 +68,39 @@ impl Values {
             ids.sort_unstable();
         }
 
+        let entries = entries
+            .into_iter()
+            .map(|(key, ids)| Entry::new(key, ids))
+            .collect();
+
         Self { entries }
+    }
+}
+
+#[derive(Debug)]
+pub struct Entry {
+    key: String,
+    ids: Vec<i32>,
+}
+
+impl Entry {
+    fn new(key: String, ids: Vec<i32>) -> Self {
+        Entry { key, ids }
+    }
+}
+
+impl From<Entry> for Vec<u8> {
+    fn from(entry: Entry) -> Self {
+        let mut bytes = Vec::new();
+
+        let encoded_key = entry.key.as_bytes();
+        bytes.extend_from_slice(&(encoded_key.len() as u8).to_be_bytes());
+        bytes.extend_from_slice(encoded_key);
+        bytes.extend_from_slice(&(entry.ids.len() as i16).to_be_bytes());
+        for id in entry.ids {
+            bytes.extend_from_slice(&id.to_be_bytes());
+        }
+
+        bytes
     }
 }

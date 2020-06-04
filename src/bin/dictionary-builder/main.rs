@@ -1,9 +1,11 @@
 mod content;
+mod encode;
 mod id_mapping;
 mod lookup;
 mod sql;
 
 use anyhow::Result;
+use encode::Encode;
 use id_mapping::IdMapping;
 use rusqlite::params;
 use rusqlite::Connection;
@@ -67,11 +69,11 @@ fn main() -> Result<()> {
 
     let entries = entries.into_iter().map(|e| e.into()).collect::<Vec<_>>();
     let content_header = content::Header::for_entries(&entries);
-    write_content(&opt.output_content_file, content_header, entries)?;
+    write_content(&opt.output_content_file, &content_header, entries)?;
 
     let lookup_header = lookup::Header::for_entries(&lookup);
     let lookup_values = lookup::Values::for_entries(lookup);
-    write_lookup(&opt.output_lookup_file, lookup_header, lookup_values)?;
+    write_lookup(&opt.output_lookup_file, &lookup_header, lookup_values)?;
 
     Ok(())
 }
@@ -136,12 +138,12 @@ fn sort_entries(entries: &mut [sql::Entry]) {
     });
 }
 
-fn write_content(path: &Path, header: content::Header, values: Vec<Vec<u8>>) -> Result<()> {
+fn write_content(path: &Path, header: &content::Header, values: Vec<Vec<u8>>) -> Result<()> {
     let content_file = File::create(path)?;
     let mut content_file = BufWriter::new(content_file);
 
-    let content_header: Vec<u8> = header.into();
-    content_file.write_all(&content_header)?;
+    header.encode(&mut content_file)?;
+
     for e in values {
         content_file.write_all(&e)?;
     }
@@ -149,16 +151,14 @@ fn write_content(path: &Path, header: content::Header, values: Vec<Vec<u8>>) -> 
     Ok(())
 }
 
-fn write_lookup(path: &Path, header: lookup::Header, values: lookup::Values) -> Result<()> {
+fn write_lookup(path: &Path, header: &lookup::Header, values: lookup::Values) -> Result<()> {
     let lookup_file = File::create(path)?;
     let mut lookup_file = BufWriter::new(lookup_file);
 
-    let lookup_header: Vec<u8> = header.into();
-    lookup_file.write_all(&lookup_header)?;
+    header.encode(&mut lookup_file)?;
 
     for e in values.entries {
-        let bytes: Vec<u8> = e.into();
-        lookup_file.write_all(&bytes)?;
+        e.encode(&mut lookup_file)?;
     }
 
     Ok(())

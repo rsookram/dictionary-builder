@@ -1,3 +1,7 @@
+use crate::encode::Encode;
+use std::io;
+use std::io::Write;
+
 #[derive(Debug)]
 pub struct Header {
     pub size_bytes: i32,
@@ -26,16 +30,14 @@ impl Header {
     }
 }
 
-impl From<Header> for Vec<u8> {
-    fn from(header: Header) -> Self {
-        let mut bytes = Vec::new();
+impl Encode for Header {
+    fn encode(&self, w: &mut impl Write) -> Result<(), io::Error> {
+        w.write_all(&self.size_bytes.to_be_bytes())?;
 
-        bytes.extend_from_slice(&header.size_bytes.to_be_bytes());
-
-        for offset in &header.offsets {
-            bytes.extend_from_slice(&offset.to_be_bytes());
+        for offset in &self.offsets {
+            w.write_all(&offset.to_be_bytes())?;
         }
 
-        bytes
+        Ok(())
     }
 }

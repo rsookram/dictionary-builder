@@ -1,4 +1,7 @@
+use crate::encode::Encode;
 use std::collections::BTreeMap;
+use std::io;
+use std::io::Write;
 
 #[derive(Debug)]
 pub struct Header {
@@ -33,23 +36,21 @@ impl Header {
     }
 }
 
-impl From<Header> for Vec<u8> {
-    fn from(header: Header) -> Self {
-        let mut bytes = Vec::new();
-
+impl Encode for Header {
+    fn encode(&self, w: &mut impl Write) -> Result<(), io::Error> {
         let header_length_field_bytes = std::mem::size_of::<i32>() as i32;
         let header_entry_size_bytes =
             (std::mem::size_of::<u32>() + std::mem::size_of::<i32>()) as i32;
         let header_size =
-            header_length_field_bytes + (header_entry_size_bytes * (header.entries.len() as i32));
-        bytes.extend_from_slice(&header_size.to_be_bytes());
+            header_length_field_bytes + (header_entry_size_bytes * (self.entries.len() as i32));
+        w.write_all(&header_size.to_be_bytes())?;
 
-        for (first_char, offset) in &header.entries {
-            bytes.extend_from_slice(&first_char.to_be_bytes());
-            bytes.extend_from_slice(&offset.to_be_bytes());
+        for (first_char, offset) in &self.entries {
+            w.write_all(&first_char.to_be_bytes())?;
+            w.write_all(&offset.to_be_bytes())?;
         }
 
-        bytes
+        Ok(())
     }
 }
 
@@ -89,18 +90,16 @@ impl Entry {
     }
 }
 
-impl From<Entry> for Vec<u8> {
-    fn from(entry: Entry) -> Self {
-        let mut bytes = Vec::new();
-
-        let encoded_key = entry.key.as_bytes();
-        bytes.extend_from_slice(&(encoded_key.len() as u8).to_be_bytes());
-        bytes.extend_from_slice(encoded_key);
-        bytes.extend_from_slice(&(entry.ids.len() as i16).to_be_bytes());
-        for id in entry.ids {
-            bytes.extend_from_slice(&id.to_be_bytes());
+impl Encode for Entry {
+    fn encode(&self, w: &mut impl Write) -> Result<(), io::Error> {
+        let encoded_key = self.key.as_bytes();
+        w.write_all(&(encoded_key.len() as u8).to_be_bytes())?;
+        w.write_all(encoded_key)?;
+        w.write_all(&(self.ids.len() as i16).to_be_bytes())?;
+        for id in self.ids.iter() {
+            w.write_all(&id.to_be_bytes())?;
         }
 
-        bytes
+        Ok(())
     }
 }

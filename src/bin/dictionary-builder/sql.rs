@@ -17,15 +17,9 @@ impl From<Entry> for Vec<u8> {
         bytes.extend_from_slice(&entry.type_id.to_be_bytes());
         bytes.extend_from_slice(entry.word.as_bytes());
         bytes.extend_from_slice(separator);
-        bytes.extend_from_slice(
-            entry
-                .variants
-                .as_ref()
-                .unwrap_or(&"".to_string())
-                .as_bytes(),
-        );
+        bytes.extend_from_slice(entry.variants.as_deref().unwrap_or("").as_bytes());
         bytes.extend_from_slice(separator);
-        bytes.extend_from_slice(entry.reading.as_ref().unwrap_or(&"".to_string()).as_bytes());
+        bytes.extend_from_slice(entry.reading.as_deref().unwrap_or("").as_bytes());
         bytes.extend_from_slice(separator);
         bytes.extend_from_slice(entry.definitions.as_bytes());
 

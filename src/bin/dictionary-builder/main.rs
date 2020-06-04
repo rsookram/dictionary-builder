@@ -70,10 +70,10 @@ fn main() -> Result<()> {
 
     let entries = entries.into_iter().map(|e| e.into()).collect::<Vec<_>>();
     let content = Content::for_entries(entries);
-    write_content(&opt.output_content_file, &content)?;
+    write(&opt.output_content_file, &content)?;
 
     let lookup = Lookup::for_entries(lookup);
-    write_lookup(&opt.output_lookup_file, &lookup)?;
+    write(&opt.output_lookup_file, &lookup)?;
 
     Ok(())
 }
@@ -138,20 +138,11 @@ fn sort_entries(entries: &mut [sql::Entry]) {
     });
 }
 
-fn write_content(path: &Path, content: &Content) -> Result<()> {
-    let content_file = File::create(path)?;
-    let mut content_file = BufWriter::new(content_file);
+fn write(path: &Path, data: &impl Encode) -> Result<()> {
+    let f = File::create(path)?;
+    let mut f = BufWriter::new(f);
 
-    content.encode(&mut content_file)?;
-
-    Ok(())
-}
-
-fn write_lookup(path: &Path, lookup: &Lookup) -> Result<()> {
-    let lookup_file = File::create(path)?;
-    let mut lookup_file = BufWriter::new(lookup_file);
-
-    lookup.encode(&mut lookup_file)?;
+    data.encode(&mut f)?;
 
     Ok(())
 }

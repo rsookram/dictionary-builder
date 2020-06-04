@@ -5,6 +5,7 @@ mod lookup;
 mod sql;
 
 use anyhow::Result;
+use content::Content;
 use encode::Encode;
 use id_mapping::IdMapping;
 use rusqlite::params;
@@ -13,7 +14,6 @@ use rusqlite::OpenFlags;
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::BufWriter;
-use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -68,8 +68,8 @@ fn main() -> Result<()> {
     let lookup = read_lookup(&opt.input_files, &id_mapping)?;
 
     let entries = entries.into_iter().map(|e| e.into()).collect::<Vec<_>>();
-    let content_header = content::Header::for_entries(&entries);
-    write_content(&opt.output_content_file, &content_header, entries)?;
+    let content = Content::for_entries(entries);
+    write_content(&opt.output_content_file, &content)?;
 
     let lookup_header = lookup::Header::for_entries(&lookup);
     let lookup_values = lookup::Values::for_entries(lookup);
@@ -138,15 +138,11 @@ fn sort_entries(entries: &mut [sql::Entry]) {
     });
 }
 
-fn write_content(path: &Path, header: &content::Header, values: Vec<Vec<u8>>) -> Result<()> {
+fn write_content(path: &Path, content: &Content) -> Result<()> {
     let content_file = File::create(path)?;
     let mut content_file = BufWriter::new(content_file);
 
-    header.encode(&mut content_file)?;
-
-    for e in values {
-        content_file.write_all(&e)?;
-    }
+    content.encode(&mut content_file)?;
 
     Ok(())
 }

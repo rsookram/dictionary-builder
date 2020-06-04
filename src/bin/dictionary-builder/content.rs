@@ -3,13 +3,40 @@ use std::io;
 use std::io::Write;
 
 #[derive(Debug)]
-pub struct Header {
-    pub size_bytes: i32,
-    pub offsets: Vec<i16>,
+pub struct Content {
+    header: Header,
+    entries: Vec<Vec<u8>>,
+}
+
+impl Content {
+    pub fn for_entries(entries: Vec<Vec<u8>>) -> Self {
+        Self {
+            header: Header::for_entries(&entries),
+            entries,
+        }
+    }
+}
+
+impl Encode for Content {
+    fn encode(&self, w: &mut impl Write) -> Result<(), io::Error> {
+        self.header.encode(w)?;
+
+        for e in &self.entries {
+            w.write_all(&e)?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct Header {
+    size_bytes: i32,
+    offsets: Vec<i16>,
 }
 
 impl Header {
-    pub fn for_entries(entries: &[Vec<u8>]) -> Self {
+    fn for_entries(entries: &[Vec<u8>]) -> Self {
         let length_field_size_bytes = std::mem::size_of::<i32>() as i32;
         let entry_size_bytes = std::mem::size_of::<i16>() as i32;
 

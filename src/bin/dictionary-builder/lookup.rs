@@ -4,12 +4,36 @@ use std::io;
 use std::io::Write;
 
 #[derive(Debug)]
-pub struct Header {
-    pub entries: Vec<(u32, i32)>,
+pub struct Lookup {
+    header: Header,
+    values: Values,
+}
+
+impl Lookup {
+    pub fn for_entries(lookup: BTreeMap<String, Vec<i32>>) -> Self {
+        Self {
+            header: Header::for_entries(&lookup),
+            values: Values::for_entries(lookup),
+        }
+    }
+}
+
+impl Encode for Lookup {
+    fn encode(&self, w: &mut impl Write) -> Result<(), io::Error> {
+        self.header.encode(w)?;
+        self.values.encode(w)?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct Header {
+    entries: Vec<(u32, i32)>,
 }
 
 impl Header {
-    pub fn for_entries(lookup: &BTreeMap<String, Vec<i32>>) -> Self {
+    fn for_entries(lookup: &BTreeMap<String, Vec<i32>>) -> Self {
         let mut entries = Vec::new();
 
         let mut current_offset = 0_i32;
@@ -55,12 +79,12 @@ impl Encode for Header {
 }
 
 #[derive(Debug)]
-pub struct Values {
-    pub entries: Vec<Entry>,
+struct Values {
+    entries: Vec<Entry>,
 }
 
 impl Values {
-    pub fn for_entries(lookup: BTreeMap<String, Vec<i32>>) -> Self {
+    fn for_entries(lookup: BTreeMap<String, Vec<i32>>) -> Self {
         let mut entries: Vec<(String, Vec<i32>)> = lookup.into_iter().collect();
 
         entries.sort_unstable_by(|(a, _), (b, _)| a.cmp(&b));
@@ -78,8 +102,18 @@ impl Values {
     }
 }
 
+impl Encode for Values {
+    fn encode(&self, w: &mut impl Write) -> Result<(), io::Error> {
+        for e in &self.entries {
+            e.encode(w)?;
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
-pub struct Entry {
+struct Entry {
     key: String,
     ids: Vec<i32>,
 }

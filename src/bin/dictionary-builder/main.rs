@@ -8,6 +8,7 @@ use anyhow::Result;
 use content::Content;
 use encode::Encode;
 use id_mapping::IdMapping;
+use lookup::Lookup;
 use rusqlite::params;
 use rusqlite::Connection;
 use rusqlite::OpenFlags;
@@ -71,9 +72,8 @@ fn main() -> Result<()> {
     let content = Content::for_entries(entries);
     write_content(&opt.output_content_file, &content)?;
 
-    let lookup_header = lookup::Header::for_entries(&lookup);
-    let lookup_values = lookup::Values::for_entries(lookup);
-    write_lookup(&opt.output_lookup_file, &lookup_header, lookup_values)?;
+    let lookup = Lookup::for_entries(lookup);
+    write_lookup(&opt.output_lookup_file, &lookup)?;
 
     Ok(())
 }
@@ -147,15 +147,11 @@ fn write_content(path: &Path, content: &Content) -> Result<()> {
     Ok(())
 }
 
-fn write_lookup(path: &Path, header: &lookup::Header, values: lookup::Values) -> Result<()> {
+fn write_lookup(path: &Path, lookup: &Lookup) -> Result<()> {
     let lookup_file = File::create(path)?;
     let mut lookup_file = BufWriter::new(lookup_file);
 
-    header.encode(&mut lookup_file)?;
-
-    for e in values.entries {
-        e.encode(&mut lookup_file)?;
-    }
+    lookup.encode(&mut lookup_file)?;
 
     Ok(())
 }

@@ -1,4 +1,5 @@
 use crate::encode::Encode;
+use crate::num::U15;
 use crate::num::U31;
 use anyhow::Result;
 use std::collections::BTreeMap;
@@ -16,7 +17,7 @@ impl Lookup {
     pub fn for_entries(lookup: BTreeMap<String, Vec<i32>>) -> Result<Self> {
         Ok(Self {
             header: Header::for_entries(&lookup)?,
-            values: Values::for_entries(lookup),
+            values: Values::for_entries(lookup)?,
         })
     }
 }
@@ -87,7 +88,7 @@ struct Values {
 }
 
 impl Values {
-    fn for_entries(lookup: BTreeMap<String, Vec<i32>>) -> Self {
+    fn for_entries(lookup: BTreeMap<String, Vec<i32>>) -> Result<Self> {
         let mut entries: Vec<(String, Vec<i32>)> = lookup.into_iter().collect();
 
         entries.sort_unstable_by(|(a, _), (b, _)| a.cmp(&b));
@@ -96,12 +97,12 @@ impl Values {
             ids.sort_unstable();
         }
 
-        let entries = entries
+        let entries: Result<Vec<_>> = entries
             .into_iter()
             .map(|(key, ids)| Entry::new(key, ids))
             .collect();
 
-        Self { entries }
+        Ok(Self { entries: entries? })
     }
 }
 
@@ -119,11 +120,13 @@ impl Encode for Values {
 struct Entry {
     key: String,
     ids: Vec<i32>,
+    num_ids: U15,
 }
 
 impl Entry {
-    fn new(key: String, ids: Vec<i32>) -> Self {
-        Entry { key, ids }
+    fn new(key: String, ids: Vec<i32>) -> Result<Self> {
+        let num_ids = ids.len().try_into()?;
+        Ok(Entry { key, ids, num_ids })
     }
 }
 
@@ -132,7 +135,7 @@ impl Encode for Entry {
         let encoded_key = self.key.as_bytes();
         w.write_all(&(encoded_key.len() as u8).to_be_bytes())?;
         w.write_all(encoded_key)?;
-        w.write_all(&(self.ids.len() as i16).to_be_bytes())?;
+        w.write_all(&self.num_ids.to_be_bytes())?;
         for id in self.ids.iter() {
             w.write_all(&id.to_be_bytes())?;
         }

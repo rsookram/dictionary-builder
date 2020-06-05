@@ -1,9 +1,10 @@
+use crate::num::U7;
 use crate::sql;
 use std::collections::BTreeMap;
 
 /// Maps (type, ID) from original DB to final ID (index in entries slice)
 pub struct IdMapping {
-    mapping: BTreeMap<(i8, u32), i32>,
+    mapping: BTreeMap<(U7, u32), i32>,
 }
 
 impl IdMapping {
@@ -16,7 +17,7 @@ impl IdMapping {
         Self { mapping }
     }
 
-    pub fn get(&self, type_id: i8, entry_id: u32) -> Option<i32> {
+    pub fn get(&self, type_id: U7, entry_id: u32) -> Option<i32> {
         self.mapping.get(&(type_id, entry_id)).copied()
     }
 }

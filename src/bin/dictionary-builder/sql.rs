@@ -1,6 +1,8 @@
+use crate::num::U7;
+
 #[derive(Debug)]
 pub struct Entry {
-    pub type_id: i8,
+    pub type_id: U7,
     pub id: u32,
     pub word: String,
     pub variants: Option<String>,

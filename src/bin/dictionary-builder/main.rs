@@ -2,6 +2,7 @@ mod content;
 mod encode;
 mod id_mapping;
 mod lookup;
+mod num;
 mod sql;
 
 use anyhow::Result;
@@ -13,6 +14,7 @@ use rusqlite::params;
 use rusqlite::Connection;
 use rusqlite::OpenFlags;
 use std::collections::BTreeMap;
+use std::convert::TryInto;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
@@ -79,8 +81,14 @@ fn main() -> Result<()> {
 }
 
 fn read_entries(inputs: &[PathBuf]) -> Result<Vec<sql::Entry>> {
+    let inputs = inputs
+        .iter()
+        .enumerate()
+        .map(|(idx, path)| (idx.try_into().unwrap(), path));
+
     let mut entries = Vec::new();
-    for (idx, path) in inputs.iter().enumerate() {
+
+    for (idx, path) in inputs {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
 
         let mut stmt =
@@ -88,7 +96,7 @@ fn read_entries(inputs: &[PathBuf]) -> Result<Vec<sql::Entry>> {
         let entry_iter = stmt
             .query_map(params![], |row| {
                 Ok(sql::Entry {
-                    type_id: idx as i8,
+                    type_id: idx,
                     id: row.get(0)?,
                     word: row.get(1)?,
                     variants: row.get(2)?,
@@ -105,8 +113,14 @@ fn read_entries(inputs: &[PathBuf]) -> Result<Vec<sql::Entry>> {
 }
 
 fn read_lookup(inputs: &[PathBuf], id_mapping: &IdMapping) -> Result<BTreeMap<String, Vec<i32>>> {
+    let inputs = inputs
+        .iter()
+        .enumerate()
+        .map(|(idx, path)| (idx.try_into().unwrap(), path));
+
     let mut lookup = BTreeMap::new();
-    for (idx, path) in inputs.iter().enumerate() {
+
+    for (idx, path) in inputs {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
 
         let mut stmt = conn.prepare("SELECT reading, id FROM Lookup")?;
@@ -120,7 +134,7 @@ fn read_lookup(inputs: &[PathBuf], id_mapping: &IdMapping) -> Result<BTreeMap<St
         .for_each(|e| {
             let entry = lookup.entry(e.reading).or_insert_with(Vec::new);
 
-            let mapped_id = id_mapping.get(idx as i8, e.id).unwrap();
+            let mapped_id = id_mapping.get(idx, e.id).unwrap();
 
             (*entry).push(mapped_id);
         });

@@ -136,7 +136,7 @@ impl Encode for Entry {
         w.write_all(&(encoded_key.len() as u8).to_be_bytes())?;
         w.write_all(encoded_key)?;
         w.write_all(&self.num_ids.to_be_bytes())?;
-        for id in self.ids.iter() {
+        for id in &self.ids {
             w.write_all(&id.to_be_bytes())?;
         }
 

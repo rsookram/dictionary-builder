@@ -1,4 +1,7 @@
 use crate::encode::Encode;
+use crate::num::U31;
+use anyhow::Result;
+use std::convert::TryInto;
 use std::io;
 use std::io::Write;
 
@@ -9,11 +12,11 @@ pub struct Content {
 }
 
 impl Content {
-    pub fn for_entries(entries: Vec<Vec<u8>>) -> Self {
-        Self {
-            header: Header::for_entries(&entries),
+    pub fn for_entries(entries: Vec<Vec<u8>>) -> Result<Self> {
+        Ok(Self {
+            header: Header::for_entries(&entries)?,
             entries,
-        }
+        })
     }
 }
 
@@ -31,16 +34,16 @@ impl Encode for Content {
 
 #[derive(Debug)]
 struct Header {
-    size_bytes: i32,
+    size_bytes: U31,
     offsets: Vec<i16>,
 }
 
 impl Header {
-    fn for_entries(entries: &[Vec<u8>]) -> Self {
-        let length_field_size_bytes = std::mem::size_of::<i32>() as i32;
-        let entry_size_bytes = std::mem::size_of::<i16>() as i32;
+    fn for_entries(entries: &[Vec<u8>]) -> Result<Self> {
+        let length_field_size_bytes = std::mem::size_of::<i32>();
+        let entry_size_bytes = std::mem::size_of::<i16>();
 
-        let size_bytes = length_field_size_bytes + (entry_size_bytes * entries.len() as i32);
+        let size_bytes = length_field_size_bytes + (entry_size_bytes * entries.len());
 
         let mut offsets = Vec::with_capacity(entries.len());
 
@@ -50,10 +53,10 @@ impl Header {
             previous_length = e.len() as i16;
         }
 
-        Self {
-            size_bytes,
+        Ok(Self {
+            size_bytes: size_bytes.try_into()?,
             offsets,
-        }
+        })
     }
 }
 

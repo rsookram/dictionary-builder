@@ -71,7 +71,7 @@ fn main() -> Result<()> {
     let lookup = read_lookup(&opt.input_files, &id_mapping)?;
 
     let entries = entries.into_iter().map(|e| e.into()).collect::<Vec<_>>();
-    let content = Content::for_entries(entries);
+    let content = Content::for_entries(entries)?;
     write(&opt.output_content_file, &content)?;
 
     let lookup = Lookup::for_entries(lookup);

@@ -25,6 +25,28 @@ impl U7 {
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
+pub struct U15(u16);
+
+impl TryFrom<usize> for U15 {
+    type Error = anyhow::Error;
+
+    fn try_from(u: usize) -> Result<Self, Self::Error> {
+        let max = 32_767; // (2 ^ 15) - 1
+        if u > max {
+            Err(anyhow!("{} not in range (0..{})", u, max))
+        } else {
+            Ok(U15(u.try_into().unwrap()))
+        }
+    }
+}
+
+impl U15 {
+    pub fn to_be_bytes(self) -> [u8; 2] {
+        self.0.to_be_bytes()
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
 pub struct U31(u32);
 
 impl TryFrom<usize> for U31 {

@@ -1,4 +1,5 @@
 use crate::encode::Encode;
+use crate::num::U15;
 use crate::num::U31;
 use anyhow::Result;
 use std::convert::TryInto;
@@ -35,7 +36,7 @@ impl Encode for Content {
 #[derive(Debug)]
 struct Header {
     size_bytes: U31,
-    offsets: Vec<i16>,
+    offsets: Vec<U15>,
 }
 
 impl Header {
@@ -47,10 +48,10 @@ impl Header {
 
         let mut offsets = Vec::with_capacity(entries.len());
 
-        let mut previous_length = 0;
+        let mut previous_length = 0_usize;
         for e in entries {
-            offsets.push(previous_length);
-            previous_length = e.len() as i16;
+            offsets.push(previous_length.try_into()?);
+            previous_length = e.len();
         }
 
         Ok(Self {

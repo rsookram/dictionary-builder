@@ -1,5 +1,8 @@
 use crate::encode::Encode;
+use crate::num::U31;
+use anyhow::Result;
 use std::collections::BTreeMap;
+use std::convert::TryInto;
 use std::io;
 use std::io::Write;
 
@@ -10,11 +13,11 @@ pub struct Lookup {
 }
 
 impl Lookup {
-    pub fn for_entries(lookup: BTreeMap<String, Vec<i32>>) -> Self {
-        Self {
-            header: Header::for_entries(&lookup),
+    pub fn for_entries(lookup: BTreeMap<String, Vec<i32>>) -> Result<Self> {
+        Ok(Self {
+            header: Header::for_entries(&lookup)?,
             values: Values::for_entries(lookup),
-        }
+        })
     }
 }
 
@@ -29,34 +32,34 @@ impl Encode for Lookup {
 
 #[derive(Debug)]
 struct Header {
-    entries: Vec<(u32, i32)>,
+    entries: Vec<(u32, U31)>,
 }
 
 impl Header {
-    fn for_entries(lookup: &BTreeMap<String, Vec<i32>>) -> Self {
+    fn for_entries(lookup: &BTreeMap<String, Vec<i32>>) -> Result<Self> {
         let mut entries = Vec::new();
 
-        let mut current_offset = 0_i32;
+        let mut current_offset = 0_usize;
         for (value, ids) in lookup {
             let first_char = value.chars().next().unwrap() as u32;
             if entries.is_empty() {
-                entries.push((first_char, current_offset));
+                entries.push((first_char, current_offset.try_into()?));
             }
 
             let (previous_first_char, _) = entries.last().unwrap();
             if first_char != *previous_first_char {
-                entries.push((first_char, current_offset));
+                entries.push((first_char, current_offset.try_into()?));
             }
 
-            let length_value_in_bytes = value.as_bytes().len() as i32;
-            let length_ids_in_bytes = (ids.len() * std::mem::size_of::<i32>()) as i32;
+            let length_value_in_bytes = value.as_bytes().len();
+            let length_ids_in_bytes = ids.len() * std::mem::size_of::<i32>();
             let value_length_bytes = 1;
             let ids_length_bytes = 2;
             current_offset +=
                 value_length_bytes + length_value_in_bytes + ids_length_bytes + length_ids_in_bytes
         }
 
-        Self { entries }
+        Ok(Self { entries })
     }
 }
 

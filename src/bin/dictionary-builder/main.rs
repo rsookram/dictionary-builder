@@ -74,7 +74,7 @@ fn main() -> Result<()> {
     let content = Content::for_entries(entries)?;
     write(&opt.output_content_file, &content)?;
 
-    let lookup = Lookup::for_entries(lookup);
+    let lookup = Lookup::for_entries(lookup)?;
     write(&opt.output_lookup_file, &lookup)?;
 
     Ok(())

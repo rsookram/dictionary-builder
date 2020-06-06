@@ -123,21 +123,28 @@ impl Encode for Values {
 #[derive(Debug)]
 struct Entry {
     key: String,
+    key_length: u8,
     ids: Vec<i32>,
     num_ids: U15,
 }
 
 impl Entry {
     fn new(key: String, ids: Vec<i32>) -> Result<Self> {
+        let key_length = key.as_bytes().len().try_into()?;
         let num_ids = ids.len().try_into()?;
-        Ok(Entry { key, ids, num_ids })
+        Ok(Entry {
+            key,
+            key_length,
+            ids,
+            num_ids,
+        })
     }
 }
 
 impl Encode for Entry {
     fn encode(&self, w: &mut impl Write) -> Result<(), io::Error> {
         let encoded_key = self.key.as_bytes();
-        w.write_all(&(encoded_key.len() as u8).to_be_bytes())?;
+        w.write_all(&self.key_length.to_be_bytes())?;
         w.write_all(encoded_key)?;
         w.write_all(&self.num_ids.to_be_bytes())?;
         for id in &self.ids {

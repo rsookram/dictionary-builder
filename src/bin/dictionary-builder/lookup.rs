@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use std::convert::TryInto;
 use std::io;
 use std::io::Write;
+use std::mem;
 
 #[derive(Debug)]
 pub struct Lookup {
@@ -33,6 +34,7 @@ impl Encode for Lookup {
 
 #[derive(Debug)]
 struct Header {
+    size_bytes: U31,
     entries: Vec<(u32, U31)>,
 }
 
@@ -53,25 +55,27 @@ impl Header {
             }
 
             let length_value_in_bytes = value.as_bytes().len();
-            let length_ids_in_bytes = ids.len() * std::mem::size_of::<i32>();
+            let length_ids_in_bytes = ids.len() * mem::size_of::<i32>();
             let value_length_bytes = 1;
             let ids_length_bytes = 2;
             current_offset +=
                 value_length_bytes + length_value_in_bytes + ids_length_bytes + length_ids_in_bytes
         }
 
-        Ok(Self { entries })
+        let length_field_bytes = mem::size_of::<i32>();
+        let entry_size_bytes = mem::size_of::<u32>() + mem::size_of::<i32>();
+        let size_bytes = length_field_bytes + (entry_size_bytes * entries.len());
+
+        Ok(Self {
+            size_bytes: size_bytes.try_into()?,
+            entries,
+        })
     }
 }
 
 impl Encode for Header {
     fn encode(&self, w: &mut impl Write) -> Result<(), io::Error> {
-        let header_length_field_bytes = std::mem::size_of::<i32>() as i32;
-        let header_entry_size_bytes =
-            (std::mem::size_of::<u32>() + std::mem::size_of::<i32>()) as i32;
-        let header_size =
-            header_length_field_bytes + (header_entry_size_bytes * (self.entries.len() as i32));
-        w.write_all(&header_size.to_be_bytes())?;
+        w.write_all(&self.size_bytes.to_be_bytes())?;
 
         for (first_char, offset) in &self.entries {
             w.write_all(&first_char.to_be_bytes())?;

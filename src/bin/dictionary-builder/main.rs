@@ -10,6 +10,7 @@ use content::Content;
 use encode::Encode;
 use id_mapping::IdMapping;
 use lookup::Lookup;
+use num::U31;
 use rusqlite::params;
 use rusqlite::Connection;
 use rusqlite::OpenFlags;
@@ -66,7 +67,7 @@ fn main() -> Result<()> {
 
     sort_entries(&mut entries);
 
-    let id_mapping = IdMapping::new(&entries);
+    let id_mapping = IdMapping::new(&entries)?;
 
     let lookup = read_lookup(&opt.input_files, &id_mapping)?;
 
@@ -112,7 +113,7 @@ fn read_entries(inputs: &[PathBuf]) -> Result<Vec<sql::Entry>> {
     Ok(entries)
 }
 
-fn read_lookup(inputs: &[PathBuf], id_mapping: &IdMapping) -> Result<BTreeMap<String, Vec<i32>>> {
+fn read_lookup(inputs: &[PathBuf], id_mapping: &IdMapping) -> Result<BTreeMap<String, Vec<U31>>> {
     let inputs = inputs
         .iter()
         .enumerate()

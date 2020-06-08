@@ -15,7 +15,7 @@ pub struct Lookup {
 }
 
 impl Lookup {
-    pub fn for_entries(lookup: BTreeMap<String, Vec<i32>>) -> Result<Self> {
+    pub fn for_entries(lookup: BTreeMap<String, Vec<U31>>) -> Result<Self> {
         Ok(Self {
             header: Header::for_entries(&lookup)?,
             values: Values::for_entries(lookup)?,
@@ -39,7 +39,7 @@ struct Header {
 }
 
 impl Header {
-    fn for_entries(lookup: &BTreeMap<String, Vec<i32>>) -> Result<Self> {
+    fn for_entries(lookup: &BTreeMap<String, Vec<U31>>) -> Result<Self> {
         let mut entries = Vec::new();
 
         let mut current_offset = 0_usize;
@@ -92,8 +92,8 @@ struct Values {
 }
 
 impl Values {
-    fn for_entries(lookup: BTreeMap<String, Vec<i32>>) -> Result<Self> {
-        let mut entries: Vec<(String, Vec<i32>)> = lookup.into_iter().collect();
+    fn for_entries(lookup: BTreeMap<String, Vec<U31>>) -> Result<Self> {
+        let mut entries: Vec<(String, Vec<U31>)> = lookup.into_iter().collect();
 
         entries.sort_unstable_by(|(a, _), (b, _)| a.cmp(&b));
 
@@ -124,12 +124,12 @@ impl Encode for Values {
 struct Entry {
     key: String,
     key_length: u8,
-    ids: Vec<i32>,
+    ids: Vec<U31>,
     num_ids: U15,
 }
 
 impl Entry {
-    fn new(key: String, ids: Vec<i32>) -> Result<Self> {
+    fn new(key: String, ids: Vec<U31>) -> Result<Self> {
         let key_length = key.as_bytes().len().try_into()?;
         let num_ids = ids.len().try_into()?;
         Ok(Entry {

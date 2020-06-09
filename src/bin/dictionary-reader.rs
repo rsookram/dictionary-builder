@@ -106,6 +106,23 @@ fn run_content(file: &Path, id: u32) -> Result<String> {
     Ok(result)
 }
 
+fn read_entry<'a>(offsets: &[u32], content: &'a [u8], pos: usize) -> Option<&'a str> {
+    if pos >= offsets.len() {
+        return None;
+    }
+
+    let type_length = 1; // type field for entry
+
+    let start = (offsets[pos] + type_length) as usize;
+    let end = if pos + 1 < offsets.len() {
+        offsets[pos + 1] as usize
+    } else {
+        content.len()
+    };
+
+    str::from_utf8(&content[start..end]).ok()
+}
+
 fn run_lookup(file: &Path, ch: char) -> Result<Vec<LookupEntry>> {
     let mut f = File::open(file)?;
     let mut buf = Vec::new();
@@ -143,55 +160,47 @@ fn run_lookup(file: &Path, ch: char) -> Result<Vec<LookupEntry>> {
             break;
         }
 
-        let value_len_in_bytes = size_of::<u8>();
-        let (value_len_bytes, rest) = content.split_at(value_len_in_bytes);
+        let (entry, rest) = read_lookup_entry(content)?;
         content = rest;
 
-        let value_len = u8::from_be_bytes(value_len_bytes.try_into()?);
-
-        let (value_bytes, rest) = content.split_at(value_len as usize);
-        content = rest;
-
-        let value = str::from_utf8(value_bytes)?;
-        if !value.starts_with(ch) {
+        if !entry.value.starts_with(ch) {
             break;
         }
 
-        let mut result = LookupEntry::new(value.to_string());
-
-        let num_ids_len_in_bytes = size_of::<i16>();
-        let (num_ids_bytes, rest) = content.split_at(num_ids_len_in_bytes);
-        content = rest;
-
-        let num_ids = i16::from_be_bytes(num_ids_bytes.try_into()?);
-
-        for _ in 0..num_ids {
-            let id_len_in_bytes = size_of::<i32>();
-            let (id_bytes, rest) = content.split_at(id_len_in_bytes);
-            content = rest;
-
-            let id = i32::from_be_bytes(id_bytes.try_into()?);
-            result.ids.push(id);
-        }
-        entries.push(result);
+        entries.push(entry);
     }
 
     Ok(entries)
 }
 
-fn read_entry<'a>(offsets: &[u32], content: &'a [u8], pos: usize) -> Option<&'a str> {
-    if pos >= offsets.len() {
-        return None;
+fn read_lookup_entry(content: &[u8]) -> Result<(LookupEntry, &[u8])> {
+    let value_len_in_bytes = size_of::<u8>();
+    let (value_len_bytes, rest) = content.split_at(value_len_in_bytes);
+    let mut remainder = rest;
+
+    let value_len = u8::from_be_bytes(value_len_bytes.try_into()?);
+
+    let (value_bytes, rest) = remainder.split_at(value_len as usize);
+    remainder = rest;
+
+    let value = str::from_utf8(value_bytes)?;
+
+    let mut result = LookupEntry::new(value.to_string());
+
+    let num_ids_len_in_bytes = size_of::<i16>();
+    let (num_ids_bytes, rest) = remainder.split_at(num_ids_len_in_bytes);
+    remainder = rest;
+
+    let num_ids = i16::from_be_bytes(num_ids_bytes.try_into()?);
+
+    for _ in 0..num_ids {
+        let id_len_in_bytes = size_of::<i32>();
+        let (id_bytes, rest) = remainder.split_at(id_len_in_bytes);
+        remainder = rest;
+
+        let id = i32::from_be_bytes(id_bytes.try_into()?);
+        result.ids.push(id);
     }
 
-    let type_length = 1; // type field for entry
-
-    let start = (offsets[pos] + type_length) as usize;
-    let end = if pos + 1 < offsets.len() {
-        offsets[pos + 1] as usize
-    } else {
-        content.len()
-    };
-
-    str::from_utf8(&content[start..end]).ok()
+    Ok((result, remainder))
 }

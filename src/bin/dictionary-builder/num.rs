@@ -5,65 +5,45 @@ use std::convert::TryInto;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
 pub struct U7(u8);
 
-impl TryFrom<usize> for U7 {
-    type Error = anyhow::Error;
-
-    fn try_from(u: usize) -> Result<Self, Self::Error> {
-        let max = 127;
-        if u > max {
-            Err(anyhow!("{} not in range (0..{})", u, max))
-        } else {
-            Ok(U7(u.try_into().unwrap()))
-        }
-    }
-}
-
-impl U7 {
-    pub fn to_be_bytes(self) -> [u8; 1] {
-        self.0.to_be_bytes()
-    }
-}
-
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
 pub struct U15(u16);
-
-impl TryFrom<usize> for U15 {
-    type Error = anyhow::Error;
-
-    fn try_from(u: usize) -> Result<Self, Self::Error> {
-        let max = 32_767; // (2 ^ 15) - 1
-        if u > max {
-            Err(anyhow!("{} not in range (0..{})", u, max))
-        } else {
-            Ok(U15(u.try_into().unwrap()))
-        }
-    }
-}
-
-impl U15 {
-    pub fn to_be_bytes(self) -> [u8; 2] {
-        self.0.to_be_bytes()
-    }
-}
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
 pub struct U31(u32);
 
-impl TryFrom<usize> for U31 {
-    type Error = anyhow::Error;
+macro_rules! try_from_upper_bounded {
+    ($target:ty, $max: expr) => {
+        impl TryFrom<usize> for $target {
+            type Error = anyhow::Error;
 
-    fn try_from(u: usize) -> Result<Self, Self::Error> {
-        let max = 2_147_483_647; // (2 ^ 31) - 1
-        if u > max {
-            Err(anyhow!("{} not in range (0..{})", u, max))
-        } else {
-            Ok(U31(u.try_into().unwrap()))
+            /// Try to create the target number type from a usize. This returns
+            /// an error if the usize is outside of the range of the target
+            /// type.
+            fn try_from(u: usize) -> Result<Self, Self::Error> {
+                if u > $max {
+                    Err(anyhow!("{} not in range (0..{})", u, $max))
+                } else {
+                    Ok(Self(u.try_into().unwrap()))
+                }
+            }
         }
-    }
+    };
 }
 
-impl U31 {
-    pub fn to_be_bytes(self) -> [u8; 4] {
-        self.0.to_be_bytes()
-    }
+try_from_upper_bounded!(U7, 127);
+try_from_upper_bounded!(U15, 32_767); // (2 ^ 15) - 1
+try_from_upper_bounded!(U31, 2_147_483_647); // (2 ^ 31) - 1
+
+macro_rules! to_be_bytes {
+    ($target:ty, $size_bytes: expr) => {
+        impl $target {
+            pub fn to_be_bytes(self) -> [u8; $size_bytes] {
+                self.0.to_be_bytes()
+            }
+        }
+    };
 }
+
+to_be_bytes!(U7, 1);
+to_be_bytes!(U15, 2);
+to_be_bytes!(U31, 4);

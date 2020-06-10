@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use anyhow::Result;
 use byteorder::{BigEndian, ReadBytesExt};
 use std::collections::BTreeMap;
@@ -9,6 +10,7 @@ use std::mem::size_of;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str;
+use std::string::ToString;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -94,22 +96,21 @@ fn run_content(file: &Path, id: u32) -> Result<String> {
 
     let id = id as usize;
 
-    let result = if let Some(e) = read_entry(&offsets, &content, id) {
-        e.to_string()
-    } else {
-        format!(
-            "Given invalid ID {}. ID must be in range (0..{})",
-            id,
-            offsets.len() - 1
-        )
+    let result = match read_entry(&offsets, &content, id) {
+        Ok(e) => e,
+        Err(err) => err.to_string(),
     };
 
     Ok(result)
 }
 
-fn read_entry<'a>(offsets: &[u32], content: &'a [u8], pos: usize) -> Option<&'a str> {
+fn read_entry(offsets: &[u32], content: &[u8], pos: usize) -> Result<String> {
     if pos >= offsets.len() {
-        return None;
+        return Err(anyhow!(
+            "Given invalid ID {}. ID must be in range (0..{})",
+            pos,
+            offsets.len() - 1
+        ));
     }
 
     let type_length = 1; // type field for entry
@@ -121,7 +122,7 @@ fn read_entry<'a>(offsets: &[u32], content: &'a [u8], pos: usize) -> Option<&'a 
         content.len()
     };
 
-    str::from_utf8(&content[start..end]).ok()
+    Ok(str::from_utf8(&content[start..end]).map(ToString::to_string)?)
 }
 
 fn run_lookup(file: &Path, ch: char) -> Result<Vec<LookupEntry>> {
@@ -172,7 +173,7 @@ fn run_lookup(file: &Path, ch: char) -> Result<Vec<LookupEntry>> {
     Ok(entries)
 }
 
-fn read_lookup_entry(rdr: &mut Cursor<&Vec<u8>>) -> Result<LookupEntry> {
+fn read_lookup_entry(rdr: &mut impl Read) -> Result<LookupEntry> {
     let value_len = rdr.read_u8()?;
 
     let mut buf = vec![0; value_len as usize];

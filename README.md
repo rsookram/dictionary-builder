@@ -46,10 +46,10 @@ The content file is made up of two parts: a header, and the entries.
 
 The header has the following format:
 
-| Size (Bytes)    | Type  | Description            |
-| --------------- | ----- | ---------------------- |
-| 4               | U31   | header length in bytes |
-| 2 * num offsets | [U15] | delta-encoded offsets of entries in the file relative to the end of the header |
+| Size (Bytes) | Type  | Description            |
+| ------------ | ----- | ---------------------- |
+| 4            | U31   | header length in bytes |
+| 2 * len      | [U15] | delta-encoded offsets of entries in the file relative to the end of the header |
 
 Immediately after the header is a list of packed entries. Each entry has the
 following format:
@@ -64,3 +64,25 @@ following format:
 | variable     | str   | reading (empty if there is none)         |
 | 1            | u8    | separator                                |
 | variable     | str   | definitions for the word                 |
+
+### Lookup
+
+The lookup file is also made up of two parts like the content file: a header,
+and the entries.
+
+The header has the following format:
+
+| Size (Bytes) | Type         | Description            |
+| ------------ | ------------ | ---------------------- |
+| 4            | U31          | header length in bytes |
+| 4 * len      | [(u32, U31)] | u32 is a unicode codepoint and U31 is an offset of an entry in the file relative to the end of the header |
+
+Immediately after the header is a list of packed entries. Each entry has the
+following format:
+
+| Size (Bytes) | Type  | Description                    |
+| ------------ | ----- | ------------------------------ |
+| 1            | u8    | the length of the key in bytes |
+| variable     | str   | the key                        |
+| 2            | U15   | the number of IDs              |
+| 4 * len      | [U31] | IDs                            |

@@ -14,7 +14,7 @@ impl From<Entry> for Vec<u8> {
     fn from(entry: Entry) -> Self {
         let mut bytes = Vec::new();
 
-        let separator = b"#";
+        let separator = b"\0";
 
         bytes.extend_from_slice(&entry.type_id.to_be_bytes());
         bytes.extend_from_slice(entry.word.as_bytes());

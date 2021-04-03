@@ -5,10 +5,10 @@ authors = ["rsookram <rashadsookram@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-structopt = "0.3.14"
-rusqlite = {version = "0.24.1", features=["bundled"]}
-byteorder = "1.3.4"
-anyhow = "1.0.31"
+structopt = "0.3.17"
+rusqlite = {version = "0.25.0", features=["bundled"]}
+byteorder = "1.4.3"
+anyhow = "1.0.40"
 
 [profile.release]
 lto = true
